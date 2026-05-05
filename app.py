@@ -8,9 +8,10 @@ from datetime import timedelta, datetime
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
 
+# 啟用寬螢幕模式
 st.set_page_config(page_title="FANG+ Attribution", layout="wide")
 
-# 2. 側邊欄控制
+# 2. 側邊欄控制 (縮減寬度)
 st.sidebar.header("控制面板")
 period_options = [
     ('1個月', '1mo'), ('3個月', '3mo'), ('6個月', '6mo'), 
@@ -53,7 +54,7 @@ try:
 
     point_contrib_df = pd.DataFrame(point_contrib_list, index=returns.index)
 
-    # 5. 定位顯示日期 (處理假日)
+    # 5. 定位顯示日期
     target_ts = pd.to_datetime(target_date)
     valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
 
@@ -65,37 +66,42 @@ try:
         change_pct = (actual_idx_change / prev_price) * 100
 
         # --- 數據儀表板顯示 ---
-        st.title(f"📊 NYSE FANG+ 歸因分析 ({plot_date.date()})")
-        c1, c2, c3 = st.columns(3)
+        st.subheader(f"📊 NYSE FANG+ 歸因分析 ({plot_date.date()})")
+        
+        c1, c2, c3, c4 = st.columns(4)
         c1.metric("指數價位", f"{current_price:,.2f}")
-        c2.metric("今日漲跌點數", f"{actual_idx_change:+.2f}", f"{change_pct:+.2f}%")
-        c3.metric("追蹤成分股", f"{len(OFFICIAL_TICKERS)} 檔")
+        c2.metric("漲跌點數", f"{actual_idx_change:+.2f}")
+        c3.metric("漲跌幅", f"{change_pct:+.2f}%")
+        c4.metric("成分股", f"{len(OFFICIAL_TICKERS)} 檔")
 
-        # --- 圖表繪製 ---
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-        plt.subplots_adjust(hspace=0.3)
+        # --- 圖表繪製 (優化尺寸) ---
+        # 縮小 figsize 使螢幕不需過度捲動
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 7)) 
         
         # 上圖：指數歷史趨勢
-        ax1.plot(idx_series, color='#1f77b4', lw=2, label='Index Close Price')
-        ax1.axvline(plot_date, color='orange', ls='--', alpha=0.8, label='Selected Date')
-        ax1.set_title("NYSE FANG+ Index Trend", fontsize=14, pad=15)
-        ax1.legend()
-        ax1.grid(True, alpha=0.2)
+        ax1.plot(idx_series, color='#1f77b4', lw=1.5, label='Index Price')
+        ax1.axvline(plot_date, color='orange', ls='--', alpha=0.7)
+        ax1.set_title("Index Trend", fontsize=10)
+        ax1.tick_params(labelsize=8)
+        ax1.grid(True, alpha=0.1)
         
         # 下圖：成分股點數貢獻
         row = point_contrib_df.loc[plot_date].sort_values(ascending=False)
         colors = ['#2ca02c' if x > 0 else '#d62728' for x in row]
         row.plot(kind='bar', ax=ax2, color=colors)
-        ax2.set_title(f"Point Contribution (Total: {actual_idx_change:+.2f} pts)", fontsize=13, pad=10)
-        ax2.axhline(0, color='black', lw=1)
+        ax2.set_title(f"Point Contribution (Total: {actual_idx_change:+.2f})", fontsize=10)
+        ax2.axhline(0, color='black', lw=0.8)
+        ax2.tick_params(axis='x', labelsize=9, rotation=0)
+        ax2.tick_params(axis='y', labelsize=8)
         
-        # 標註點數數值
+        # 標註點數數值 (調小字體)
         for i, v in enumerate(row):
-            ax2.text(i, v + (0.5 if v > 0 else -1.5), f"{v:+.2f}", ha='center', fontweight='bold', fontsize=10)
+            ax2.text(i, v + (0.2 if v > 0 else -1.2), f"{v:+.2f}", ha='center', fontsize=8, fontweight='bold')
         
-        st.pyplot(fig)
+        plt.tight_layout() # 自動調整間距，避免重疊
+        st.pyplot(fig, use_container_width=True) # 強制適應網頁寬度
     else:
-        st.error("⚠️ 該日期沒有交易數據（可能是週末或節假日），請選擇其他日期。")
+        st.error("⚠️ 該日期無交易數據。")
 
 except Exception as e:
     st.error(f"❌ 發生錯誤: {e}")
