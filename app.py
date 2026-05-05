@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # --- 1. DESIGN TOKENS ---
 COLORS = {
@@ -19,44 +19,14 @@ COLORS = {
 
 # --- 2. THEMED CSS INJECTION ---
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
-
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
-
     .stApp {{ background-color: {COLORS['bg']}; color: {COLORS['fg']}; font-family: 'Josefin Sans', sans-serif; }}
-    
-    h1, h2, h3, .main-title {{
-        font-family: 'Marcellus', serif !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.25em !important;
-        color: {COLORS['gold']} !important;
-        text-align: center;
-    }}
-
-    section[data-testid="stSidebar"] {{
-        width: 350px !important;
-        background-color: {COLORS['card_bg']};
-        border-right: 1px solid {COLORS['gold']}44;
-    }}
-
-    .stButton>button {{
-        width: 100%;
-        border-radius: 0px !important;
-        border: 1px solid {COLORS['gold']} !important;
-        background-color: transparent !important;
-        color: {COLORS['gold']} !important;
-        font-size: 0.7rem !important;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-    }}
-
-    .metric-card {{
-        background-color: {COLORS['card_bg']};
-        border: 1px solid {COLORS['gold']}33;
-        padding: 20px;
-        text-align: center;
-    }}
+    h1, .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; letter-spacing: 0.25em; color: {COLORS['gold']} !important; text-align: center; }}
+    section[data-testid="stSidebar"] {{ width: 350px !important; background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
+    .stButton>button {{ width: 100%; border-radius: 0px !important; border: 1px solid {COLORS['gold']} !important; background-color: transparent !important; color: {COLORS['gold']} !important; font-size: 0.7rem !important; text-transform: uppercase; }}
+    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 20px; text-align: center; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -67,29 +37,45 @@ INDEX_SYMBOL = "^NYFANG"
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
-    # 不要在這裡 dropna，避免整份數據消失
     data = yf.download(all_symbols, period=p, progress=False, auto_adjust=False)['Close']
     return data
 
-# --- 4. SIDEBAR ---
+# --- 4. PRE-FETCH DATA FOR CALENDAR CALIBRATION ---
+# 預先抓取資料以取得有效日期範圍
+try:
+    init_data = fetch_data("5y") # 預抓五年內資料作為日期參考
+    trading_days = init_data.index.date.tolist()
+    min_market_date = min(trading_days)
+    max_market_date = max(trading_days)
+except:
+    min_market_date = datetime(2014, 1, 1).date()
+    max_market_date = datetime.now().date()
+    trading_days = []
+
+# --- 5. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2>The Terminal</h2>", unsafe_allow_html=True)
     st.markdown("---")
     
-    period_options = [('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), ('I YEAR', '1y'), ('YTD', 'ytd')]
+    period_options = [('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), ('I YEAR', '1y'), ('V YEARS', '5y'), ('YTD', 'ytd')]
     period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=0)
     
-    # 處理日期邏輯
+    # 初始化日期
     if 'target_date' not in st.session_state:
-        st.session_state.target_date = datetime.now().date()
+        st.session_state.target_date = max_market_date
     
-    target_date = st.date_input("DEPARTURE DATE", value=st.session_state.target_date)
+    # 限制日曆可選範圍
+    target_date = st.date_input(
+        "DEPARTURE DATE", 
+        value=st.session_state.target_date,
+        min_value=min_market_date,
+        max_value=max_market_date
+    )
     
-    # 按鈕放在日期下方
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("GO TODAY"):
-            st.session_state.target_date = datetime.now().date()
+            st.session_state.target_date = max_market_date
             st.rerun()
     with btn_col2:
         if st.button("REFRESH"):
@@ -97,55 +83,45 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption("© 2026 jen-hao.yang")
-    st.caption("ARCHITECTURAL TRADING INTERFACE")
 
-# --- 5. MAIN CONTENT ---
+# --- 6. MAIN CONTENT ---
 try:
     raw_data = fetch_data(period_val)
-    if raw_data.empty:
-        st.error("DATA SOURCE OFFLINE. PLEASE REFRESH.")
-        st.stop()
-
-    # 填充缺失值並分組
-    raw_data = raw_data.ffill().bfill()
+    raw_data = raw_data.ffill()
+    
+    # 計算歸因
     idx_series = raw_data[INDEX_SYMBOL]
     stock_prices = raw_data[OFFICIAL_TICKERS]
-
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change()
     
-    # 計算歸因
     point_contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
     for date in returns.index:
-        if date in idx_diff.index:
-            actual_total_pts = idx_diff.loc[date]
-            r = returns.loc[date]
-            raw_impact = r * 0.1
-            impact_sum = raw_impact.sum()
-            # 避免除以零
-            if abs(impact_sum) > 1e-6 and not pd.isna(actual_total_pts):
-                point_contrib_df.loc[date] = raw_impact * (actual_total_pts / impact_sum)
-            else:
-                point_contrib_df.loc[date] = 0
+        actual_total_pts = idx_diff.loc[date]
+        r = returns.loc[date]
+        raw_impact = r * 0.1
+        impact_sum = raw_impact.sum()
+        if abs(impact_sum) > 1e-6 and not pd.isna(actual_total_pts):
+            point_contrib_df.loc[date] = raw_impact * (actual_total_pts / impact_sum)
+        else:
+            point_contrib_df.loc[date] = 0
 
-    # 找尋最近交易日
+    # 執行日期校正：若選到休假日，自動回溯到最後一個有交易的日子
     target_ts = pd.to_datetime(target_date)
-    # 確保只篩選有計算結果的日期
     valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
-
+    
     if not valid_dates.empty:
         plot_date = valid_dates[-1]
+        
+        # 數據提取
         actual_idx_change = idx_diff.loc[plot_date]
         current_price = idx_series.loc[plot_date]
-        
-        # 取得前一個有效價格
         prev_idx_loc = idx_series.index.get_loc(plot_date)
         prev_price = idx_series.iloc[prev_idx_loc - 1] if prev_idx_loc > 0 else current_price
         change_pct = ((current_price - prev_price) / prev_price) * 100 if prev_price != 0 else 0
 
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
         
-        # 顏色邏輯
         shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
 
         c1, c2, c3 = st.columns(3)
@@ -156,9 +132,9 @@ try:
         with c3:
             st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem; margin:0;">VARIANCE</p><h2 style="color:{shift_color}; margin:0; font-family:Marcellus;">{change_pct:+.2f}%</h2></div>', unsafe_allow_html=True)
 
-        # 圖表設定
+        # 繪圖
         plt.rcParams.update({"text.color": COLORS['fg'], "axes.labelcolor": COLORS['muted'], "axes.edgecolor": COLORS['gold'], "xtick.color": COLORS['muted'], "ytick.color": COLORS['muted'], "axes.facecolor": COLORS['bg'], "figure.facecolor": COLORS['bg']})
-
+        
         col1, col2 = st.columns(2)
         with col1:
             fig1, ax1 = plt.subplots(figsize=(7, 4.5))
@@ -168,12 +144,10 @@ try:
             ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
             ax1.xaxis.set_major_locator(mticker.MaxNLocator(6))
             ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], pad=20)
-            ax1.spines['top'].set_visible(False); ax1.spines['right'].set_visible(False)
             st.pyplot(fig1)
 
         with col2:
             fig2, ax2 = plt.subplots(figsize=(7, 4.5))
-            # 確保資料為數值型態後再排序
             row = point_contrib_df.loc[plot_date].apply(pd.to_numeric).sort_values(ascending=False)
             chart_colors = [COLORS['up'] if x > 0 else COLORS['down'] for x in row]
             bars = ax2.bar(row.index, row.values, color=chart_colors, edgecolor=COLORS['gold'], lw=0.5)
@@ -184,12 +158,5 @@ try:
                 ax2.text(bar.get_x() + bar.get_width()/2., height + (0.5 if height > 0 else -2.5), f'{height:+.2f}', ha='center', fontsize=8, color=COLORS['fg'], fontweight='bold')
             st.pyplot(fig2)
             
-    else:
-        # 如果真的找不到日期，顯示提示並自動回退到最後一天
-        st.warning(f"MARKET WAS CLOSED ON {target_date}. ATTEMPTING TO RECOVER LATEST DATA...")
-        if not point_contrib_df.index.empty:
-            st.session_state.target_date = point_contrib_df.index[-1].date()
-            st.rerun()
-
 except Exception as e:
-    st.error(f"SYSTEM RECOVERY IN PROGRESS: {e}")
+    st.error(f"TERMINAL RECOVERY: {e}")
