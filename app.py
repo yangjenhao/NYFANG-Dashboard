@@ -17,18 +17,41 @@ COLORS = {
     "down": "#FF0000"
 }
 
-# --- 2. THEMED CSS INJECTION ---
+# --- 2. THEMED CSS INJECTION (Optimized for Mobile) ---
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
+    
+    /* 基礎樣式 */
     .stApp {{ background-color: {COLORS['bg']}; color: {COLORS['fg']}; font-family: 'Josefin Sans', sans-serif; }}
-    h1, .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; letter-spacing: 0.25em; color: {COLORS['gold']} !important; text-align: center; }}
-    section[data-testid="stSidebar"] {{ width: 350px !important; background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
+    h1, .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; letter-spacing: 0.15em; color: {COLORS['gold']} !important; text-align: center; font-size: 1.8rem; }}
+    
+    /* 側邊欄：僅在桌面版限制寬度 */
+    @media (min-width: 768px) {{
+        section[data-testid="stSidebar"] {{ width: 350px !important; }}
+    }}
+    
+    section[data-testid="stSidebar"] {{ background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
+    
     .stButton>button {{ width: 100%; border-radius: 0px !important; border: 1px solid {COLORS['gold']} !important; background-color: transparent !important; color: {COLORS['gold']} !important; font-size: 0.7rem !important; text-transform: uppercase; }}
-    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 20px; text-align: center; }}
+    
+    /* 指標卡片自適應 */
+    .metric-card {{ 
+        background-color: {COLORS['card_bg']}; 
+        border: 1px solid {COLORS['gold']}33; 
+        padding: 15px; 
+        text-align: center; 
+        margin-bottom: 10px;
+    }}
+    
     .sidebar-link {{ color: {COLORS['muted']} !important; text-decoration: none; font-size: 0.8rem; transition: 0.3s; }}
     .sidebar-link:hover {{ color: {COLORS['gold']} !important; }}
+
+    /* 針對 Streamlit 內建 Column 的手機端間距調整 */
+    div[data-testid="column"] {{
+        margin-bottom: 1rem;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -59,7 +82,6 @@ with st.sidebar:
     if 'target_date' not in st.session_state:
         st.session_state.target_date = latest_market_date
     
-    # 這裡維持無 key 綁定，避免報錯
     input_date = st.date_input("DEPARTURE DATE", value=st.session_state.target_date, max_value=latest_market_date)
     st.session_state.target_date = input_date
     
@@ -113,40 +135,44 @@ try:
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
         shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
 
-        c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]};">INDEX VALUE</p><h2>{current_price:,.2f}</h2></div>', unsafe_allow_html=True)
-        with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]};">POINT SHIFT</p><h2 style="color:{shift_color};">{actual_idx_change:+.2f}</h2></div>', unsafe_allow_html=True)
-        with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]};">VARIANCE</p><h2 style="color:{shift_color};">{change_pct:+.2f}%</h2></div>', unsafe_allow_html=True)
+        # 在手機版，這些 columns 會自動堆疊
+        c1, c2, c3 = st.columns([1, 1, 1])
+        with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem; margin:0;">INDEX VALUE</p><h3 style="margin:0;">{current_price:,.2f}</h3></div>', unsafe_allow_html=True)
+        with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem; margin:0;">POINT SHIFT</p><h3 style="color:{shift_color}; margin:0;">{actual_idx_change:+.2f}</h3></div>', unsafe_allow_html=True)
+        with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem; margin:0;">VARIANCE</p><h3 style="color:{shift_color}; margin:0;">{change_pct:+.2f}%</h3></div>', unsafe_allow_html=True)
 
         plt.rcParams.update({"text.color": COLORS['fg'], "axes.labelcolor": COLORS['muted'], "axes.edgecolor": COLORS['gold'], "xtick.color": COLORS['muted'], "ytick.color": COLORS['muted'], "axes.facecolor": COLORS['bg'], "figure.facecolor": COLORS['bg']})
         
-        col1, col2 = st.columns(2)
+        # 在手機版，col1 與 col2 會自動上下排列
+        col1, col2 = st.columns([1, 1])
         with col1:
             fig1, ax1 = plt.subplots(figsize=(7, 4.5))
             ax1.plot(idx_series.index, idx_series.values, color=COLORS['gold'], lw=2)
             ax1.axvline(plot_date, color=COLORS['fg'], ls='--', lw=1)
             
-            # 確保 X 軸有年份 (針對 1y, 5y 優化)
             if period_val in ['1y', '5y']:
-                ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+                ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%m'))
             else:
                 ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
             
-            ax1.xaxis.set_major_locator(mticker.MaxNLocator(6))
-            ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], pad=20)
-            st.pyplot(fig1)
+            ax1.xaxis.set_major_locator(mticker.MaxNLocator(5))
+            ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], pad=15, fontsize=10)
+            st.pyplot(fig1, use_container_width=True)
 
         with col2:
             fig2, ax2 = plt.subplots(figsize=(7, 4.5))
             row = point_contrib_df.loc[plot_date].apply(pd.to_numeric).sort_values(ascending=False)
             chart_colors = [COLORS['up'] if x > 0 else COLORS['down'] for x in row]
             bars = ax2.bar(row.index, row.values, color=chart_colors, edgecolor=COLORS['gold'], lw=0.5)
-            ax2.set_title(f"CONTRIBUTION ({plot_date.strftime('%Y-%m-%d')})", color=COLORS['gold'], pad=20)
+            ax2.set_title(f"CONTRIBUTION ({plot_date.strftime('%Y-%m-%d')})", color=COLORS['gold'], pad=15, fontsize=10)
             ax2.axhline(0, color=COLORS['fg'], lw=0.5)
+            ax2.tick_params(axis='x', rotation=45, labelsize=8)
+            # 手機版簡化標籤顯示，只顯示絕對值較大的
             for bar in bars:
                 height = bar.get_height()
-                ax2.text(bar.get_x() + bar.get_width()/2., height + (0.1 if height > 0 else -1.5), f'{height:+.2f}', ha='center', fontsize=8, color=COLORS['fg'], fontweight='bold')
-            st.pyplot(fig2)
+                if abs(height) > (row.abs().max() * 0.1):
+                    ax2.text(bar.get_x() + bar.get_width()/2., height + (0.1 if height > 0 else -1.5), f'{height:+.1f}', ha='center', fontsize=7, color=COLORS['fg'])
+            st.pyplot(fig2, use_container_width=True)
             
 except Exception as e:
     st.error(f"TERMINAL OFFLINE: {e}")
