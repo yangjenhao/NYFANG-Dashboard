@@ -1,9 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import matplotlib.ticker as mticker
+import plotly.graph_objects as go
 from datetime import datetime
 
 # --- 1. DESIGN TOKENS ---
@@ -27,14 +25,7 @@ st.markdown(f"""
     section[data-testid="stSidebar"] {{ width: 350px !important; background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
     .stButton>button {{ width: 100%; border-radius: 0px !important; border: 1px solid {COLORS['gold']} !important; background-color: transparent !important; color: {COLORS['gold']} !important; font-size: 0.7rem !important; text-transform: uppercase; }}
     .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 20px; text-align: center; }}
-    
-    /* 連結樣式自定義 */
-    .sidebar-link {{
-        color: {COLORS['muted']} !important;
-        text-decoration: none;
-        font-size: 0.8rem;
-        transition: 0.3s;
-    }}
+    .sidebar-link {{ color: {COLORS['muted']} !important; text-decoration: none; font-size: 0.8rem; transition: 0.3s; }}
     .sidebar-link:hover {{ color: {COLORS['gold']} !important; }}
     </style>
 """, unsafe_allow_html=True)
@@ -57,24 +48,16 @@ with st.sidebar:
     period_options = [('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), ('I YEAR', '1y'), ('V YEARS', '5y'), ('YTD', 'ytd')]
     period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=0)
     
-    # 預抓今日日期
     try:
         temp_data = fetch_data("1mo")
         latest_market_date = temp_data.index[-1].date()
     except:
         latest_market_date = datetime.now().date()
 
-    # 初始化與讀取狀態
     if 'target_date' not in st.session_state:
         st.session_state.target_date = latest_market_date
     
-    # 建立日期輸入框，同步讀取 session_state
-    target_date = st.date_input(
-        "DEPARTURE DATE", 
-        value=st.session_state.target_date,
-        max_value=latest_market_date
-    )
-    # 同步回寫：確保使用者手動在日曆選取時也能記錄
+    target_date = st.date_input("DEPARTURE DATE", value=st.session_state.target_date, max_value=latest_market_date)
     st.session_state.target_date = target_date
     
     btn_col1, btn_col2 = st.columns(2)
@@ -87,23 +70,17 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    st.markdown(f"""
-        <p style='font-size: 0.8rem; color: {COLORS['muted']};'>
-        © 2026 jen-hao.yang<br>
-        <a href="https://x.com/jenhaoyang" target="_blank" class="sidebar-link">FOLLOW ON X (TWITTER)</a>
-        </p>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<p style='font-size: 0.8rem; color: {COLORS['muted']};'>© 2026 jen-hao.yang<br><a href='https://x.com/jenhaoyang' target='_blank' class='sidebar-link'>FOLLOW ON X (TWITTER)</a></p>", unsafe_allow_html=True)
 
 # --- 5. MAIN CONTENT ---
 try:
-    raw_data = fetch_data(period_val)
-    raw_data = raw_data.ffill().bfill()
-    
+    raw_data = fetch_data(period_val).ffill().bfill()
     idx_series = raw_data[INDEX_SYMBOL]
     stock_prices = raw_data[OFFICIAL_TICKERS]
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change()
     
+    # 歸因計算
     point_contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
     for date in returns.index:
         actual_total_pts = idx_diff.loc[date]
@@ -117,55 +94,76 @@ try:
 
     target_ts = pd.to_datetime(st.session_state.target_date)
     valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
+    plot_date = valid_dates[-1] if not valid_dates.empty else point_contrib_df.index[-1]
+
+    # 數據指標
+    actual_idx_change = idx_diff.loc[plot_date]
+    current_price = idx_series.loc[plot_date]
+    prev_idx_loc = idx_series.index.get_loc(plot_date)
+    prev_price = idx_series.iloc[prev_idx_loc - 1] if prev_idx_loc > 0 else current_price
+    change_pct = ((current_price - prev_price) / prev_price) * 100 if prev_price != 0 else 0
+
+    st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
+    shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
+
+    c1, c2, c3 = st.columns(3)
+    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]};">INDEX VALUE</p><h2>{current_price:,.2f}</h2></div>', unsafe_allow_html=True)
+    with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]};">POINT SHIFT</p><h2 style="color:{shift_color};">{actual_idx_change:+.2f}</h2></div>', unsafe_allow_html=True)
+    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]};">VARIANCE</p><h2 style="color:{shift_color};">{change_pct:+.2f}%</h2></div>', unsafe_allow_html=True)
+
+    # --- 圖表區塊 ---
+    col1, col2 = st.columns(2)
     
-    if not valid_dates.empty:
-        plot_date = valid_dates[-1]
-        actual_idx_change = idx_diff.loc[plot_date]
-        current_price = idx_series.loc[plot_date]
-        prev_idx_loc = idx_series.index.get_loc(plot_date)
-        prev_price = idx_series.iloc[prev_idx_loc - 1] if prev_idx_loc > 0 else current_price
-        change_pct = ((current_price - prev_price) / prev_price) * 100 if prev_price != 0 else 0
-
-        st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
+    with col1:
+        # 使用 Plotly 製作互動式歷史曲線
+        fig_idx = go.Figure()
+        fig_idx.add_trace(go.Scatter(
+            x=idx_series.index, y=idx_series.values,
+            line=dict(color=COLORS['gold'], width=2),
+            hoverinfo="x+y",
+            name="Index"
+        ))
+        # 加入當前選取日期的垂直線
+        fig_idx.add_vline(x=plot_date, line_width=1, line_dash="dash", line_color=COLORS['fg'])
         
-        shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
-
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem; margin:0;">INDEX VALUE</p><h2 style="color:{COLORS["fg"]}; margin:0; font-family:Marcellus;">{current_price:,.2f}</h2></div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem; margin:0;">POINT SHIFT</p><h2 style="color:{shift_color}; margin:0; font-family:Marcellus;">{actual_idx_change:+.2f}</h2></div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem; margin:0;">VARIANCE</p><h2 style="color:{shift_color}; margin:0; font-family:Marcellus;">{change_pct:+.2f}%</h2></div>', unsafe_allow_html=True)
-
-        plt.rcParams.update({"text.color": COLORS['fg'], "axes.labelcolor": COLORS['muted'], "axes.edgecolor": COLORS['gold'], "xtick.color": COLORS['muted'], "ytick.color": COLORS['muted'], "axes.facecolor": COLORS['bg'], "figure.facecolor": COLORS['bg']})
+        fig_idx.update_layout(
+            title=dict(text="HISTORICAL TREND (CLICK TO SYNC)", font=dict(color=COLORS['gold'])),
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=0, r=0, t=40, b=0), height=400,
+            xaxis=dict(showgrid=False, color=COLORS['muted']),
+            yaxis=dict(showgrid=True, gridcolor='#333', color=COLORS['muted']),
+            clickmode='event+select' # 啟用點擊事件
+        )
         
-        col1, col2 = st.columns(2)
-        with col1:
-            fig1, ax1 = plt.subplots(figsize=(7, 4.5))
-            ax1.plot(idx_series.index, idx_series.values, color=COLORS['gold'], lw=2)
-            ax1.axvline(plot_date, color=COLORS['fg'], ls='--', lw=1)
-            
-            if period_val in ['1y', '5y']:
-                ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-            else:
-                ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-            
-            ax1.xaxis.set_major_locator(mticker.MaxNLocator(6))
-            ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], pad=20)
-            st.pyplot(fig1)
+        # 顯示圖表並捕捉點擊
+        selected_points = st.plotly_chart(fig_idx, use_container_width=True, on_select="rerun")
+        
+        # 檢查是否有新的點擊
+        if selected_points and "selection" in selected_points and selected_points["selection"]["points"]:
+            clicked_date = selected_points["selection"]["points"][0]["x"]
+            # 如果點擊的日期不同，更新並 rerun
+            new_date = pd.to_datetime(clicked_date).date()
+            if new_date != st.session_state.target_date:
+                st.session_state.target_date = new_date
+                st.rerun()
 
-        with col2:
-            fig2, ax2 = plt.subplots(figsize=(7, 4.5))
-            row = point_contrib_df.loc[plot_date].apply(pd.to_numeric).sort_values(ascending=False)
-            chart_colors = [COLORS['up'] if x > 0 else COLORS['down'] for x in row]
-            bars = ax2.bar(row.index, row.values, color=chart_colors, edgecolor=COLORS['gold'], lw=0.5)
-            ax2.set_title(f"CONTRIBUTION ({plot_date.strftime('%Y-%m-%d')})", color=COLORS['gold'], pad=20)
-            ax2.axhline(0, color=COLORS['fg'], lw=0.5)
-            for bar in bars:
-                height = bar.get_height()
-                ax2.text(bar.get_x() + bar.get_width()/2., height + (0.1 if height > 0 else -1.5), f'{height:+.2f}', ha='center', fontsize=8, color=COLORS['fg'], fontweight='bold')
-            st.pyplot(fig2)
-            
+    with col2:
+        # 貢獻度長條圖
+        row = point_contrib_df.loc[plot_date].apply(pd.to_numeric).sort_values(ascending=False)
+        fig_bar = go.Figure()
+        fig_bar.add_trace(go.Bar(
+            x=row.index, y=row.values,
+            marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+            text=row.values.round(2), textposition='auto'
+        ))
+        fig_bar.update_layout(
+            title=dict(text=f"CONTRIBUTION ({plot_date.strftime('%Y-%m-%d')})", font=dict(color=COLORS['gold'])),
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=0, r=0, t=40, b=0), height=400,
+            xaxis=dict(color=COLORS['muted']),
+            yaxis=dict(showgrid=True, gridcolor='#333', color=COLORS['muted'])
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+
 except Exception as e:
     st.error(f"TERMINAL OFFLINE: {e}")
