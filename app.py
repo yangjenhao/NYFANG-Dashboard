@@ -37,14 +37,11 @@ st.markdown(f"""
         text-align: center;
     }}
 
-    /* 強制修改 Metric 數值顏色 */
+    /* 強制修改 Metric 顏色 */
     [data-testid="stMetricValue"] {{
         font-family: 'Marcellus', serif !important;
+        color: {COLORS['fg']} !important;
     }}
-    
-    /* 處理漲跌顏色：直接鎖定包含 + 或 - 的容器 */
-    div[data-testid="stMetricValue"] > div:contains("+") {{ color: {COLORS['up']} !important; }}
-    div[data-testid="stMetricValue"] > div:contains("-") {{ color: {COLORS['down']} !important; }}
 
     section[data-testid="stSidebar"] {{
         width: 320px !important;
@@ -107,8 +104,9 @@ try:
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change().dropna()
     
-    # 歸因計算
-    point_contrib_df = pd.DataFrame(index=returns.index)
+    # 【關鍵修復】: 預先定義 Columns 避免 Iterable 錯誤
+    point_contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
+    
     for date in returns.index:
         if date in idx_diff.index:
             actual_total_pts = idx_diff.loc[date]
@@ -128,11 +126,26 @@ try:
 
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
         
-        # 數據看板 (Point Shift 顏色由 CSS 控制)
-        m1, m2, m3 = st.columns(3)
-        m1.metric("INDEX VALUE", f"{current_price:,.2f}")
-        m2.metric("POINT SHIFT", f"{actual_idx_change:+.2f}")
-        m3.metric("VARIANCE", f"{change_pct:+.2f}%")
+        # 漲跌顯色邏輯
+        shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("INDEX VALUE", f"{current_price:,.2f}")
+        # 透過 HTML 直接控制顏色
+        with c2:
+            st.markdown(f"""
+                <div style="background-color:{COLORS['card_bg']}; border:1px solid {COLORS['gold']}33; padding:20px; text-align:center;">
+                    <p style="color:{COLORS['gold']}; font-family:'Marcellus'; letter-spacing:0.1em; margin:0;">POINT SHIFT</p>
+                    <h2 style="color:{shift_color}; margin:0; font-family:'Marcellus';">{actual_idx_change:+.2f}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"""
+                <div style="background-color:{COLORS['card_bg']}; border:1px solid {COLORS['gold']}33; padding:20px; text-align:center;">
+                    <p style="color:{COLORS['gold']}; font-family:'Marcellus'; letter-spacing:0.1em; margin:0;">VARIANCE</p>
+                    <h2 style="color:{shift_color}; margin:0; font-family:'Marcellus';">{change_pct:+.2f}%</h2>
+                </div>
+            """, unsafe_allow_html=True)
 
         # --- 6. CHARTS OPTIMIZATION ---
         plt.rcParams.update({
@@ -147,13 +160,13 @@ try:
         with col1:
             fig1, ax1 = plt.subplots(figsize=(7, 4))
             ax1.plot(idx_series.index, idx_series.values, color=COLORS['gold'], lw=2)
-            # 趨勢優化：自動調整 Y 軸範圍，不從 0 開始
-            ax1.set_ylim(idx_series.min() * 0.98, idx_series.max() * 1.02)
+            # 趨勢優化：縮小 Y 軸顯示區間
+            ax1.set_ylim(idx_series.min() * 0.99, idx_series.max() * 1.01)
             ax1.axvline(plot_date, color=COLORS['fg'], ls='--', lw=1)
             
-            # 時間軸修復：自動格式化與標籤間隔
+            # 時間軸修復
             ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-            ax1.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=7))
+            ax1.xaxis.set_major_locator(mdates.MaxNLocator(6)) # 限制標籤數量
             
             ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], pad=15)
             ax1.spines['top'].set_visible(False)
@@ -163,7 +176,7 @@ try:
 
         with col2:
             fig2, ax2 = plt.subplots(figsize=(7, 4))
-            row = point_contrib_df.loc[plot_date].sort_values(ascending=False)
+            row = point_contrib_df.loc[plot_date].astype(float).sort_values(ascending=False)
             chart_colors = [COLORS['up'] if x > 0 else COLORS['down'] for x in row]
             bars = ax2.bar(row.index, row.values, color=chart_colors, edgecolor=COLORS['gold'], lw=0.5)
             ax2.set_title(f"CONTRIBUTION: {actual_idx_change:+.2f} PTS", color=COLORS['gold'], pad=15)
