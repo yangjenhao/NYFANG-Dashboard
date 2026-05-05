@@ -10,16 +10,21 @@ INDEX_SYMBOL = "^NYFANG"
 
 st.set_page_config(page_title="FANG+ Dashboard", layout="wide")
 
-# 2. 側邊欄
-st.sidebar.header("控制面板")
-period_options = [
-    ('1個月', '1mo'), ('3個月', '3mo'), ('6個月', '6mo'), 
-    ('1年', '1y'), ('2年', '2y'), ('5年', '5y'), ('今年至今', 'ytd')
-]
-period_label, period_val = st.sidebar.selectbox(
-    "選擇時間範圍", options=period_options, format_func=lambda x: x[0], index=1
-)
-target_date = st.sidebar.date_input("選擇分析日期", value=datetime.now())
+# 2. 側邊欄與版權資訊
+with st.sidebar:
+    st.header("控制面板")
+    period_options = [
+        ('1個月', '1mo'), ('3個月', '3mo'), ('6個月', '6mo'), 
+        ('1年', '1y'), ('2年', '2y'), ('5年', '5y'), ('今年至今', 'ytd')
+    ]
+    period_label, period_val = st.selectbox(
+        "選擇時間範圍", options=period_options, format_func=lambda x: x[0], index=1
+    )
+    target_date = st.date_input("選擇分析日期", value=datetime.now())
+    
+    st.markdown("---")
+    # 加入版權資訊
+    st.caption("© 2026 jen-hao.yang")
 
 # 3. 數據抓取
 @st.cache_data(ttl=3600)
@@ -60,17 +65,21 @@ try:
 
         # --- 標題與數值 ---
         st.subheader(f"📊 NYFANG+ 歸因分析 ({plot_date.date()})")
+        
+        # 顯示成分股清單
+        st.write(f"**當前追蹤成分股：** {', '.join(OFFICIAL_TICKERS)}")
+        
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("指數價位", f"{current_price:,.2f}")
         c2.metric("漲跌點數", f"{actual_idx_change:+.2f}")
         c3.metric("漲跌幅", f"{change_pct:+.2f}%")
-        c4.metric("成分股", "10 檔")
+        c4.metric("成分股數", "10 檔")
 
-        # --- 核心改動：左右並排佈局 ---
+        # --- 左右並排佈局 ---
         chart_col1, chart_col2 = st.columns(2)
 
         with chart_col1:
-            fig1, ax1 = plt.subplots(figsize=(6, 4)) # 設定較小的比例
+            fig1, ax1 = plt.subplots(figsize=(6, 4))
             ax1.plot(idx_series, color='#1f77b4', lw=2)
             ax1.axvline(plot_date, color='orange', ls='--')
             ax1.set_title("Index Trend", fontsize=12)
