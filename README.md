@@ -13,7 +13,8 @@ This terminal identifies which individual tech giants (such as NVIDIA, Meta, or 
 
 ## The Portfolio
 Tracks the heavyweights: **META, AAPL, AMZN, NFLX, MSFT, GOOGL, MU, NVDA, PLTR, AVGO.**
-**Live Demo**: [View the Dashboard](https://nyfang-dashboard.streamlit.app/)
+
+**Live Demo**: [View the Dashboard](https://nyfang-dashboard-aohkgvkgxabbm3la6wve3z.streamlit.app/)
 
 ---
 © 2026 [Jen-Hao Yang]
