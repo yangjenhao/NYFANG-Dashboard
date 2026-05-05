@@ -1,9 +1,22 @@
-# FANG+ Gatsby Terminal
+# NYSE FANG+ Terminal
 
-A high-performance financial dashboard for tracking and attributing performance within the **NYSE FANG+ Index (^NYFANG)**. This tool visualizes historical trends and calculates individual stock point-contribution to the total index movement.
+A professional-grade financial dashboard focused on **Performance Attribution Analysis** for the NYSE FANG+ Index (^NYFANG).
 
-## Key Features
-- **Index Attribution**: Breaks down daily index point shifts by individual ticker (AAPL, NVDA, TSLA, etc.).
-- **Interactive Timeline**: Analyze performance across multiple timeframes (1M, 3M, 1Y, 5Y).
-- **Historical Context**: Visualize current trends with custom-themed, terminal-style charts.
-- **Smart Date Recovery**: Automatically identifies the latest market trading day and handles weekend/holiday gaps.
+## Overview
+This terminal identifies which individual tech giants (such as NVIDIA, Meta, or Apple) are driving the index's daily price action. It quantifies the "point contribution" of each constituent, offering clarity on market leadership.
+
+## Core Features
+- **Point Attribution**: Decomposes daily index shifts into specific contributions from its 10 core members.
+- **Dynamic Visuals**: Historical trend lines and contribution bar charts styled in a "Gatsby Terminal" aesthetic.
+- **Smart Date Navigation**: Automatically syncs to the latest market trading day, bypassing weekends and holidays.
+- **Multi-Timeline Analysis**: Supports timeframes from 1 Month to 5 Years (YTD included).
+
+## The Portfolio
+Tracks the heavyweights: **META, AAPL, AMZN, NFLX, MSFT, GOOGL, MU, NVDA, PLTR, AVGO.**
+
+## Setup
+1. Install requirements: `pip install -r requirements.txt`
+2. Launch terminal: `streamlit run app.py`
+
+---
+© 2026 [Jen-Hao Yang]
