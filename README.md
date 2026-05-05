@@ -13,10 +13,5 @@ This terminal identifies which individual tech giants (such as NVIDIA, Meta, or 
 
 ## The Portfolio
 Tracks the heavyweights: **META, AAPL, AMZN, NFLX, MSFT, GOOGL, MU, NVDA, PLTR, AVGO.**
-
-## Setup
-1. Install requirements: `pip install -r requirements.txt`
-2. Launch terminal: `streamlit run app.py`
-
 ---
 © 2026 [Jen-Hao Yang]
