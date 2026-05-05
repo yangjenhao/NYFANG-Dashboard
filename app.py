@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as mticker  # 修正：MaxNLocator 在這裡
 from datetime import datetime
 
 # --- 1. DESIGN TOKENS ---
@@ -37,25 +38,12 @@ st.markdown(f"""
         text-align: center;
     }}
 
-    /* 強制修改 Metric 顏色 */
-    [data-testid="stMetricValue"] {{
-        font-family: 'Marcellus', serif !important;
-        color: {COLORS['fg']} !important;
-    }}
-
     section[data-testid="stSidebar"] {{
         width: 320px !important;
         background-color: {COLORS['card_bg']};
         border-right: 1px solid {COLORS['gold']}44;
     }}
 
-    [data-testid="stMetric"] {{
-        background-color: {COLORS['card_bg']};
-        border: 1px solid {COLORS['gold']}33;
-        padding: 20px;
-        text-align: center;
-    }}
-    
     .stButton>button {{
         width: 100%;
         border-radius: 0px !important;
@@ -104,7 +92,6 @@ try:
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change().dropna()
     
-    # 【關鍵修復】: 預先定義 Columns 避免 Iterable 錯誤
     point_contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
     
     for date in returns.index:
@@ -126,12 +113,17 @@ try:
 
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
         
-        # 漲跌顯色邏輯
+        # 漲跌顯色判定
         shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
 
         c1, c2, c3 = st.columns(3)
-        c1.metric("INDEX VALUE", f"{current_price:,.2f}")
-        # 透過 HTML 直接控制顏色
+        with c1:
+            st.markdown(f"""
+                <div style="background-color:{COLORS['card_bg']}; border:1px solid {COLORS['gold']}33; padding:20px; text-align:center;">
+                    <p style="color:{COLORS['gold']}; font-family:'Marcellus'; letter-spacing:0.1em; margin:0;">INDEX VALUE</p>
+                    <h2 style="color:{COLORS['fg']}; margin:0; font-family:'Marcellus';">{current_price:,.2f}</h2>
+                </div>
+            """, unsafe_allow_html=True)
         with c2:
             st.markdown(f"""
                 <div style="background-color:{COLORS['card_bg']}; border:1px solid {COLORS['gold']}33; padding:20px; text-align:center;">
@@ -160,13 +152,13 @@ try:
         with col1:
             fig1, ax1 = plt.subplots(figsize=(7, 4))
             ax1.plot(idx_series.index, idx_series.values, color=COLORS['gold'], lw=2)
-            # 趨勢優化：縮小 Y 軸顯示區間
+            # 趨勢優化：自動調整 Y 軸範圍
             ax1.set_ylim(idx_series.min() * 0.99, idx_series.max() * 1.01)
             ax1.axvline(plot_date, color=COLORS['fg'], ls='--', lw=1)
             
-            # 時間軸修復
+            # 時間軸修復：限制標籤數量，防止重疊
             ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-            ax1.xaxis.set_major_locator(mdates.MaxNLocator(6)) # 限制標籤數量
+            ax1.xaxis.set_major_locator(mticker.MaxNLocator(6)) 
             
             ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], pad=15)
             ax1.spines['top'].set_visible(False)
@@ -179,7 +171,7 @@ try:
             row = point_contrib_df.loc[plot_date].astype(float).sort_values(ascending=False)
             chart_colors = [COLORS['up'] if x > 0 else COLORS['down'] for x in row]
             bars = ax2.bar(row.index, row.values, color=chart_colors, edgecolor=COLORS['gold'], lw=0.5)
-            ax2.set_title(f"CONTRIBUTION: {actual_idx_change:+.2f} PTS", color=COLORS['gold'], pad=15)
+            ax2.set_title(f"CONTRIBUTION ({plot_date.strftime('%Y-%m-%d')})", color=COLORS['gold'], pad=15)
             ax2.axhline(0, color=COLORS['fg'], lw=0.5)
             
             for bar in bars:
