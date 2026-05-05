@@ -20,14 +20,12 @@ st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
 
-    /* Global Background & Typography */
     .stApp {{
         background-color: {COLORS['bg']};
         color: {COLORS['fg']};
         font-family: 'Josefin Sans', sans-serif;
     }}
 
-    /* Art Deco Titles */
     h1, h2, h3, .main-title {{
         font-family: 'Marcellus', serif !important;
         text-transform: uppercase !important;
@@ -36,13 +34,11 @@ st.markdown(f"""
         text-align: center;
     }}
 
-    /* Gatsby Metric Cards */
     [data-testid="stMetric"] {{
         background-color: {COLORS['card_bg']};
-        border: 1px solid {COLORS['gold']}33; /* 20% opacity gold */
+        border: 1px solid {COLORS['gold']}33;
         padding: 15px;
         text-align: center;
-        box-shadow: 0 0 10px rgba(212, 175, 55, 0.05);
     }}
     
     [data-testid="stMetricLabel"] {{
@@ -52,29 +48,11 @@ st.markdown(f"""
         color: {COLORS['gold']} !important;
     }}
 
-    /* Sidebar Styling */
     section[data-testid="stSidebar"] {{
         background-color: {COLORS['card_bg']};
         border-right: 1px solid {COLORS['gold']}44;
     }}
     
-    /* Buttons - Hard Edges */
-    .stButton>button {{
-        border-radius: 0px !important;
-        border: 1px solid {COLORS['gold']} !important;
-        background-color: transparent !important;
-        color: {COLORS['gold']} !important;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        transition: all 0.4s ease;
-    }}
-    .stButton>button:hover {{
-        background-color: {COLORS['gold']} !important;
-        color: black !important;
-        box-shadow: 0 0 15px {COLORS['gold']}66;
-    }}
-
-    /* Diagonal Texture Background Overlay */
     .stApp::before {{
         content: "";
         position: fixed;
@@ -86,7 +64,7 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. DATA LOGIC (UNCHANGED) ---
+# --- 3. DATA LOGIC ---
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
 
@@ -107,7 +85,7 @@ with st.sidebar:
     target_date = st.date_input("DEPARTURE DATE", value=datetime.now())
     
     st.markdown("---")
-    st.caption("© 2026 JEN-HAO.YANG")
+    st.caption("© 2026 jen-hao.yang")
     st.caption("ARCHITECTURAL TRADING INTERFACE")
 
 # --- 5. MAIN CONTENT ---
@@ -116,7 +94,6 @@ try:
     idx_series = raw_data[INDEX_SYMBOL].dropna()
     stock_prices = raw_data[OFFICIAL_TICKERS].dropna()
 
-    # Attribution Logic
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change().dropna()
     point_contrib_list = []
@@ -140,20 +117,16 @@ try:
         prev_price = idx_series.shift(1).loc[plot_date]
         change_pct = (actual_idx_change / prev_price) * 100
 
-        # Header Section
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align:center; color:{COLORS['muted']}; letter-spacing:0.3em;'>{plot_date.date()} — VOLUME IV</p>", unsafe_allow_html=True)
-        
         st.markdown(f"<div style='text-align:center; margin-bottom:20px; font-size:0.8rem; color:{COLORS['gold']};'>CONSTITUENTS: {', '.join(OFFICIAL_TICKERS)}</div>", unsafe_allow_html=True)
         
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("INDEX VALUE", f"{current_price:,.2f}")
         m2.metric("POINT SHIFT", f"{actual_idx_change:+.2f}")
         m3.metric("VARIANCE %", f"{change_pct:+.2f}%")
-        m4.metric("ASSETS", "X STOCKS") # Using X as Roman Numeral for 10
+        m4.metric("ASSETS", "X STOCKS")
 
-        # --- 6. ART DECO CHARTS ---
-        # Set Matplotlib Global Style
+        # --- 6. ART DECO CHARTS (FIXED) ---
         plt.rcParams.update({
             "text.color": COLORS['fg'],
             "axes.labelcolor": COLORS['muted'],
@@ -161,8 +134,7 @@ try:
             "xtick.color": COLORS['muted'],
             "ytick.color": COLORS['muted'],
             "axes.facecolor": COLORS['bg'],
-            "figure.facecolor": COLORS['bg'],
-            "font.family": "sans-serif"
+            "figure.facecolor": COLORS['bg']
         })
 
         col1, col2 = st.columns(2)
@@ -170,9 +142,9 @@ try:
         with col1:
             fig1, ax1 = plt.subplots(figsize=(6, 4))
             ax1.plot(idx_series, color=COLORS['gold'], lw=1.5)
-            ax1.fill_between(idx_series.index, idx_series, color=COLORS['gold'], alpha=0.05) # Subtle glow
+            ax1.fill_between(idx_series.index, idx_series, color=COLORS['gold'], alpha=0.05)
             ax1.axvline(plot_date, color=COLORS['fg'], ls='--', lw=0.8)
-            ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], fontsize=10, letterspacing=0.1)
+            ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], fontsize=10)
             ax1.spines['top'].set_visible(False)
             ax1.spines['right'].set_visible(False)
             plt.tight_layout()
@@ -181,13 +153,11 @@ try:
         with col2:
             fig2, ax2 = plt.subplots(figsize=(6, 4))
             row = point_contrib_df.loc[plot_date].sort_values(ascending=False)
-            # Gatsby Palette: Gold for gain, Midnight Blue/Pewter for loss
             colors = [COLORS['gold'] if x > 0 else '#1E3D59' for x in row]
             bars = ax2.bar(row.index, row.values, color=colors, edgecolor=COLORS['gold'], linewidth=0.5)
-            ax2.set_title(f"ATTRIBUTION: {actual_idx_change:+.2f} PTS", color=COLORS['gold'], fontsize=10)
+            ax2.set_title(f"CONTRIBUTION: {actual_idx_change:+.2f} PTS", color=COLORS['gold'], fontsize=10)
             ax2.axhline(0, color=COLORS['fg'], lw=0.5)
             
-            # Roman-style labels
             for bar in bars:
                 height = bar.get_height()
                 ax2.text(bar.get_x() + bar.get_width()/2., height + (0.5 if height > 0 else -1.5),
