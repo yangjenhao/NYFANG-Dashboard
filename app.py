@@ -4,13 +4,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import timedelta, datetime
 
-# --- 1. DESIGN TOKENS (Art Deco System) ---
+# --- 1. DESIGN TOKENS ---
 COLORS = {
     "bg": "#0A0A0A",
     "card_bg": "#141414",
     "fg": "#F2F0E4",
     "gold": "#D4AF37",
     "muted": "#888888",
+    "up": "#00FF00",
+    "down": "#FF0000"
 }
 
 # --- 2. THEMED CSS INJECTION ---
@@ -34,6 +36,22 @@ st.markdown(f"""
         text-align: center;
     }}
 
+    /* 修復時間軸重疊：增加側邊欄寬度 */
+    section[data-testid="stSidebar"] {{
+        width: 320px !important;
+        background-color: {COLORS['card_bg']};
+        border-right: 1px solid {COLORS['gold']}44;
+    }}
+
+    /* 確保輸入框內文字清晰 */
+    div[data-baseweb="input"], div[data-baseweb="select"] {{
+        letter-spacing: normal !important;
+    }}
+
+    [data-testid="stMetricValue"] {{
+        color: {COLORS['fg']} !important;
+    }}
+    
     [data-testid="stMetric"] {{
         background-color: {COLORS['card_bg']};
         border: 1px solid {COLORS['gold']}33;
@@ -48,9 +66,14 @@ st.markdown(f"""
         color: {COLORS['gold']} !important;
     }}
 
-    section[data-testid="stSidebar"] {{
-        background-color: {COLORS['card_bg']};
-        border-right: 1px solid {COLORS['gold']}44;
+    .stButton>button {{
+        width: 100%;
+        border-radius: 0px !important;
+        border: 1px solid {COLORS['gold']} !important;
+        background-color: transparent !important;
+        color: {COLORS['gold']} !important;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
     }}
     
     .stApp::before {{
@@ -77,6 +100,13 @@ def fetch_data(p):
 # --- 4. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2 style='font-size: 1.5rem;'>The Terminal</h2>", unsafe_allow_html=True)
+    
+    if st.button("REFRESH DATA"):
+        st.cache_data.clear()
+        st.rerun()
+
+    st.markdown("---")
+    
     period_options = [
         ('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), 
         ('I YEAR', '1y'), ('II YEARS', '2y'), ('V YEARS', '5y'), ('YTD', 'ytd')
@@ -120,13 +150,14 @@ try:
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
         st.markdown(f"<div style='text-align:center; margin-bottom:20px; font-size:0.8rem; color:{COLORS['gold']};'>CONSTITUENTS: {', '.join(OFFICIAL_TICKERS)}</div>", unsafe_allow_html=True)
         
+        delta_color = "normal" if actual_idx_change >= 0 else "inverse" 
+
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("INDEX VALUE", f"{current_price:,.2f}")
-        m2.metric("POINT SHIFT", f"{actual_idx_change:+.2f}")
-        m3.metric("VARIANCE %", f"{change_pct:+.2f}%")
+        m2.metric("POINT SHIFT", f"{actual_idx_change:+.2f}", delta_color=delta_color)
+        m3.metric("VARIANCE %", f"{change_pct:+.2f}%", delta_color=delta_color)
         m4.metric("ASSETS", "X STOCKS")
 
-        # --- 6. ART DECO CHARTS (FIXED) ---
         plt.rcParams.update({
             "text.color": COLORS['fg'],
             "axes.labelcolor": COLORS['muted'],
@@ -153,8 +184,8 @@ try:
         with col2:
             fig2, ax2 = plt.subplots(figsize=(6, 4))
             row = point_contrib_df.loc[plot_date].sort_values(ascending=False)
-            colors = [COLORS['gold'] if x > 0 else '#1E3D59' for x in row]
-            bars = ax2.bar(row.index, row.values, color=colors, edgecolor=COLORS['gold'], linewidth=0.5)
+            chart_colors = [COLORS['up'] if x > 0 else COLORS['down'] for x in row]
+            bars = ax2.bar(row.index, row.values, color=chart_colors, edgecolor=COLORS['gold'], linewidth=0.5)
             ax2.set_title(f"CONTRIBUTION: {actual_idx_change:+.2f} PTS", color=COLORS['gold'], fontsize=10)
             ax2.axhline(0, color=COLORS['fg'], lw=0.5)
             
