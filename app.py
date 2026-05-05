@@ -27,6 +27,15 @@ st.markdown(f"""
     section[data-testid="stSidebar"] {{ width: 350px !important; background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
     .stButton>button {{ width: 100%; border-radius: 0px !important; border: 1px solid {COLORS['gold']} !important; background-color: transparent !important; color: {COLORS['gold']} !important; font-size: 0.7rem !important; text-transform: uppercase; }}
     .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 20px; text-align: center; }}
+    
+    /* 連結樣式自定義 */
+    .sidebar-link {{
+        color: {COLORS['muted']} !important;
+        text-decoration: none;
+        font-size: 0.8rem;
+        transition: 0.3s;
+    }}
+    .sidebar-link:hover {{ color: {COLORS['gold']} !important; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -48,38 +57,42 @@ with st.sidebar:
     period_options = [('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), ('I YEAR', '1y'), ('V YEARS', '5y'), ('YTD', 'ytd')]
     period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=0)
     
-    # 預先取得最新有效交易日
+    # 預抓今日日期
     try:
         temp_data = fetch_data("1mo")
         latest_market_date = temp_data.index[-1].date()
     except:
         latest_market_date = datetime.now().date()
 
-    # 初始化 Session State (如果不存在)
+    # 初始化與讀取狀態
     if 'target_date' not in st.session_state:
         st.session_state.target_date = latest_market_date
     
-    # 【修復核心】：不要在 st.date_input 使用 key="target_date"
-    input_date = st.date_input(
+    # 建立日期輸入框，同步讀取 session_state
+    target_date = st.date_input(
         "DEPARTURE DATE", 
         value=st.session_state.target_date,
         max_value=latest_market_date
     )
-    # 手動將 widget 的值存回 state
-    st.session_state.target_date = input_date
+    # 同步回寫：確保使用者手動在日曆選取時也能記錄
+    st.session_state.target_date = target_date
     
-    # 按鈕佈局
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("GO TODAY"):
             st.session_state.target_date = latest_market_date
-            st.rerun() # 重跑後 st.date_input 的 value 會被賦予最新的 state
+            st.rerun()
     with btn_col2:
         if st.button("REFRESH"):
             st.rerun()
 
     st.markdown("---")
-    st.caption("© 2026 jen-hao.yang")
+    st.markdown(f"""
+        <p style='font-size: 0.8rem; color: {COLORS['muted']};'>
+        © 2026 jen-hao.yang<br>
+        <a href="https://x.com/jenhaoyang" target="_blank" class="sidebar-link">FOLLOW ON X (TWITTER)</a>
+        </p>
+    """, unsafe_allow_html=True)
 
 # --- 5. MAIN CONTENT ---
 try:
@@ -102,7 +115,6 @@ try:
         else:
             point_contrib_df.loc[date] = 0
 
-    # 取得校正後的交易日
     target_ts = pd.to_datetime(st.session_state.target_date)
     valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
     
@@ -134,7 +146,6 @@ try:
             ax1.plot(idx_series.index, idx_series.values, color=COLORS['gold'], lw=2)
             ax1.axvline(plot_date, color=COLORS['fg'], ls='--', lw=1)
             
-            # --- X 軸格式優化 ---
             if period_val in ['1y', '5y']:
                 ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
             else:
@@ -157,4 +168,4 @@ try:
             st.pyplot(fig2)
             
 except Exception as e:
-    st.error(f"SYSTEM RECOVERY: {e}")
+    st.error(f"TERMINAL OFFLINE: {e}")
