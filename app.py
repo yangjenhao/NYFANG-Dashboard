@@ -4,29 +4,29 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import timedelta, datetime
 
-# 1. 基礎配置
+# 1. Configuration & Tickers
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
 
-st.set_page_config(page_title="FANG+ Dashboard", layout="wide")
+st.set_page_config(page_title="FANG+ Attribution Dashboard", layout="wide")
 
-# 2. 側邊欄與版權資訊
+# 2. Sidebar with Copyright
 with st.sidebar:
-    st.header("控制面板")
+    st.header("Control Panel")
     period_options = [
-        ('1個月', '1mo'), ('3個月', '3mo'), ('6個月', '6mo'), 
-        ('1年', '1y'), ('2年', '2y'), ('5年', '5y'), ('今年至今', 'ytd')
+        ('1 Month', '1mo'), ('3 Months', '3mo'), ('6 Months', '6mo'), 
+        ('1 Year', '1y'), ('2 Years', '2y'), ('5 Years', '5y'), ('Year to Date', 'ytd')
     ]
     period_label, period_val = st.selectbox(
-        "選擇時間範圍", options=period_options, format_func=lambda x: x[0], index=1
+        "Select Time Period", options=period_options, format_func=lambda x: x[0], index=1
     )
-    target_date = st.date_input("選擇分析日期", value=datetime.now())
+    target_date = st.date_input("Select Analysis Date", value=datetime.now())
     
     st.markdown("---")
-    # 加入版權資訊
+    # Copyright Info
     st.caption("© 2026 jen-hao.yang")
 
-# 3. 數據抓取
+# 3. Data Fetching (Cached)
 @st.cache_data(ttl=3600)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
@@ -38,7 +38,7 @@ try:
     idx_series = raw_data[INDEX_SYMBOL].dropna()
     stock_prices = raw_data[OFFICIAL_TICKERS].dropna()
 
-    # 4. 點數歸因邏輯
+    # 4. Point Attribution Logic
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change().dropna()
     point_contrib_list = []
@@ -52,7 +52,7 @@ try:
             point_contrib_list.append(point_contrib)
     point_contrib_df = pd.DataFrame(point_contrib_list, index=returns.index)
 
-    # 5. 定位日期
+    # 5. Locate Date
     target_ts = pd.to_datetime(target_date)
     valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
 
@@ -63,19 +63,19 @@ try:
         prev_price = idx_series.shift(1).loc[plot_date]
         change_pct = (actual_idx_change / prev_price) * 100
 
-        # --- 標題與數值 ---
-        st.subheader(f"📊 NYFANG+ 歸因分析 ({plot_date.date()})")
+        # --- Header & Metrics ---
+        st.subheader(f"📊 NYSE FANG+ Attribution Analysis ({plot_date.date()})")
         
-        # 顯示成分股清單
-        st.write(f"**當前追蹤成分股：** {', '.join(OFFICIAL_TICKERS)}")
+        # Current Holdings
+        st.write(f"**Current Tickers:** {', '.join(OFFICIAL_TICKERS)}")
         
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("指數價位", f"{current_price:,.2f}")
-        c2.metric("漲跌點數", f"{actual_idx_change:+.2f}")
-        c3.metric("漲跌幅", f"{change_pct:+.2f}%")
-        c4.metric("成分股數", "10 檔")
+        c1.metric("Index Price", f"{current_price:,.2f}")
+        c2.metric("Point Change", f"{actual_idx_change:+.2f}")
+        c3.metric("Change %", f"{change_pct:+.2f}%")
+        c4.metric("Holdings", "10 Stocks")
 
-        # --- 左右並排佈局 ---
+        # --- Side-by-Side Layout ---
         chart_col1, chart_col2 = st.columns(2)
 
         with chart_col1:
@@ -101,7 +101,7 @@ try:
             st.pyplot(fig2)
             
     else:
-        st.error("⚠️ 該日期無交易數據。")
+        st.error("⚠️ No trading data available for the selected date.")
 
 except Exception as e:
-    st.error(f"❌ 錯誤: {e}")
+    st.error(f"❌ Error: {e}")
