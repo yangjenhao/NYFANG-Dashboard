@@ -48,29 +48,32 @@ with st.sidebar:
     period_options = [('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), ('I YEAR', '1y'), ('V YEARS', '5y'), ('YTD', 'ytd')]
     period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=0)
     
-    # 預抓資料取得今日有效交易日
+    # 預先取得最新有效交易日
     try:
         temp_data = fetch_data("1mo")
         latest_market_date = temp_data.index[-1].date()
     except:
         latest_market_date = datetime.now().date()
 
-    # 初始化與同步日期
+    # 初始化 Session State (如果不存在)
     if 'target_date' not in st.session_state:
         st.session_state.target_date = latest_market_date
     
-    # 關鍵：使用 key='target_date' 與 session_state 雙向綁定
-    target_date = st.date_input(
+    # 【修復核心】：不要在 st.date_input 使用 key="target_date"
+    input_date = st.date_input(
         "DEPARTURE DATE", 
-        key="target_date",
+        value=st.session_state.target_date,
         max_value=latest_market_date
     )
+    # 手動將 widget 的值存回 state
+    st.session_state.target_date = input_date
     
+    # 按鈕佈局
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("GO TODAY"):
             st.session_state.target_date = latest_market_date
-            st.rerun()
+            st.rerun() # 重跑後 st.date_input 的 value 會被賦予最新的 state
     with btn_col2:
         if st.button("REFRESH"):
             st.rerun()
@@ -88,7 +91,6 @@ try:
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change()
     
-    # 歸因計算
     point_contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
     for date in returns.index:
         actual_total_pts = idx_diff.loc[date]
@@ -100,7 +102,8 @@ try:
         else:
             point_contrib_df.loc[date] = 0
 
-    target_ts = pd.to_datetime(target_date)
+    # 取得校正後的交易日
+    target_ts = pd.to_datetime(st.session_state.target_date)
     valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
     
     if not valid_dates.empty:
@@ -131,7 +134,7 @@ try:
             ax1.plot(idx_series.index, idx_series.values, color=COLORS['gold'], lw=2)
             ax1.axvline(plot_date, color=COLORS['fg'], ls='--', lw=1)
             
-            # --- 動態修正 X 軸年份 ---
+            # --- X 軸格式優化 ---
             if period_val in ['1y', '5y']:
                 ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
             else:
