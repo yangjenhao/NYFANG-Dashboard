@@ -40,19 +40,7 @@ def fetch_data(p):
     data = yf.download(all_symbols, period=p, progress=False, auto_adjust=False)['Close']
     return data
 
-# --- 4. PRE-FETCH DATA FOR CALENDAR CALIBRATION ---
-# 預先抓取資料以取得有效日期範圍
-try:
-    init_data = fetch_data("5y") # 預抓五年內資料作為日期參考
-    trading_days = init_data.index.date.tolist()
-    min_market_date = min(trading_days)
-    max_market_date = max(trading_days)
-except:
-    min_market_date = datetime(2014, 1, 1).date()
-    max_market_date = datetime.now().date()
-    trading_days = []
-
-# --- 5. SIDEBAR ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2>The Terminal</h2>", unsafe_allow_html=True)
     st.markdown("---")
@@ -60,22 +48,28 @@ with st.sidebar:
     period_options = [('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), ('I YEAR', '1y'), ('V YEARS', '5y'), ('YTD', 'ytd')]
     period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=0)
     
-    # 初始化日期
+    # 預抓資料取得今日有效交易日
+    try:
+        temp_data = fetch_data("1mo")
+        latest_market_date = temp_data.index[-1].date()
+    except:
+        latest_market_date = datetime.now().date()
+
+    # 初始化與同步日期
     if 'target_date' not in st.session_state:
-        st.session_state.target_date = max_market_date
+        st.session_state.target_date = latest_market_date
     
-    # 限制日曆可選範圍
+    # 關鍵：使用 key='target_date' 與 session_state 雙向綁定
     target_date = st.date_input(
         "DEPARTURE DATE", 
-        value=st.session_state.target_date,
-        min_value=min_market_date,
-        max_value=max_market_date
+        key="target_date",
+        max_value=latest_market_date
     )
     
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("GO TODAY"):
-            st.session_state.target_date = max_market_date
+            st.session_state.target_date = latest_market_date
             st.rerun()
     with btn_col2:
         if st.button("REFRESH"):
@@ -84,17 +78,17 @@ with st.sidebar:
     st.markdown("---")
     st.caption("© 2026 jen-hao.yang")
 
-# --- 6. MAIN CONTENT ---
+# --- 5. MAIN CONTENT ---
 try:
     raw_data = fetch_data(period_val)
-    raw_data = raw_data.ffill()
+    raw_data = raw_data.ffill().bfill()
     
-    # 計算歸因
     idx_series = raw_data[INDEX_SYMBOL]
     stock_prices = raw_data[OFFICIAL_TICKERS]
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change()
     
+    # 歸因計算
     point_contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
     for date in returns.index:
         actual_total_pts = idx_diff.loc[date]
@@ -106,14 +100,11 @@ try:
         else:
             point_contrib_df.loc[date] = 0
 
-    # 執行日期校正：若選到休假日，自動回溯到最後一個有交易的日子
     target_ts = pd.to_datetime(target_date)
     valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
     
     if not valid_dates.empty:
         plot_date = valid_dates[-1]
-        
-        # 數據提取
         actual_idx_change = idx_diff.loc[plot_date]
         current_price = idx_series.loc[plot_date]
         prev_idx_loc = idx_series.index.get_loc(plot_date)
@@ -132,16 +123,20 @@ try:
         with c3:
             st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem; margin:0;">VARIANCE</p><h2 style="color:{shift_color}; margin:0; font-family:Marcellus;">{change_pct:+.2f}%</h2></div>', unsafe_allow_html=True)
 
-        # 繪圖
         plt.rcParams.update({"text.color": COLORS['fg'], "axes.labelcolor": COLORS['muted'], "axes.edgecolor": COLORS['gold'], "xtick.color": COLORS['muted'], "ytick.color": COLORS['muted'], "axes.facecolor": COLORS['bg'], "figure.facecolor": COLORS['bg']})
         
         col1, col2 = st.columns(2)
         with col1:
             fig1, ax1 = plt.subplots(figsize=(7, 4.5))
             ax1.plot(idx_series.index, idx_series.values, color=COLORS['gold'], lw=2)
-            ax1.set_ylim(idx_series.min() * 0.99, idx_series.max() * 1.01)
             ax1.axvline(plot_date, color=COLORS['fg'], ls='--', lw=1)
-            ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+            
+            # --- 動態修正 X 軸年份 ---
+            if period_val in ['1y', '5y']:
+                ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+            else:
+                ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+            
             ax1.xaxis.set_major_locator(mticker.MaxNLocator(6))
             ax1.set_title("HISTORICAL TREND", color=COLORS['gold'], pad=20)
             st.pyplot(fig1)
@@ -155,8 +150,8 @@ try:
             ax2.axhline(0, color=COLORS['fg'], lw=0.5)
             for bar in bars:
                 height = bar.get_height()
-                ax2.text(bar.get_x() + bar.get_width()/2., height + (0.5 if height > 0 else -2.5), f'{height:+.2f}', ha='center', fontsize=8, color=COLORS['fg'], fontweight='bold')
+                ax2.text(bar.get_x() + bar.get_width()/2., height + (0.1 if height > 0 else -1.5), f'{height:+.2f}', ha='center', fontsize=8, color=COLORS['fg'], fontweight='bold')
             st.pyplot(fig2)
             
 except Exception as e:
-    st.error(f"TERMINAL RECOVERY: {e}")
+    st.error(f"SYSTEM RECOVERY: {e}")
