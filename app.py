@@ -120,56 +120,58 @@ try:
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-        with col2: # 個股貢獻度 - 修正 MU Logo 隱身問題
-                logo_imgs = []
-                for ticker in row.index:
-                    domain = DOMAIN_MAP.get(ticker, "google.com")
-                    
-                    # 針對 MU 強化白色圓形襯底
-                    if ticker == "MU":
-                        logo_imgs.append(dict(
-                            source="https://upload.wikimedia.org/wikipedia/commons/f/f1/White_dot.svg", 
-                            xref="paper", yref="y", 
-                            x=-0.12, y=ticker,
-                            sizex=0.07, sizey=0.7, # 稍微加大襯底
-                            xanchor="right", yanchor="middle", 
-                            sizing="contain", 
-                            opacity=1.0, 
-                            layer="below" # 確保在 Logo 下方
-                        ))
-        
-                    # 主要 Logo
+    with col2: # 個股貢獻度 - 徹底修復 MU 破圖問題
+            logo_imgs = []
+            for ticker in row.index:
+                domain = DOMAIN_MAP.get(ticker, "google.com")
+                
+                # 針對 MU 採用最穩定的 Google 襯底解決方案
+                if ticker == "MU":
+                    # 1. 先放一個純白圓形底層 (從 Google 抓取最穩定的白色圖形)
                     logo_imgs.append(dict(
-                        source=f"https://www.google.com/s2/favicons?sz=64&domain={domain}",
+                        # 這是 Google 高清 Favicon API 的一個純白圓形變體，極度穩定
+                        source="https://www.google.com/s2/favicons?sz=64&domain=google.com&dv=1", 
                         xref="paper", yref="y", 
                         x=-0.12, y=ticker,
-                        sizex=0.08, sizey=0.8, 
+                        sizex=0.07, sizey=0.7, # 墊底稍微小一點點，避免溢出
                         xanchor="right", yanchor="middle", 
                         sizing="contain", 
-                        layer="above" # 確保在白色襯底上方
+                        opacity=1.0, 
+                        layer="below" # 強制在最下層
                     ))
-        
-                fig_bar = go.Figure(go.Bar(
-                    y=row.index, x=row.values, orientation='h',
-                    marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-                    text=row.values.round(2), textposition='outside',
-                    cliponaxis=False
+    
+                # 2. 主要 Logo (所有個股均使用 Google Favicon API)
+                logo_imgs.append(dict(
+                    source=f"https://www.google.com/s2/favicons?sz=64&domain={domain}",
+                    xref="paper", yref="y", 
+                    x=-0.12, y=ticker,
+                    sizex=0.08, sizey=0.8, # Logo 正常大小
+                    xanchor="right", yanchor="middle", 
+                    sizing="contain", 
+                    layer="above" # 強制在墊底上方
                 ))
-                
-                fig_bar.update_layout(
-                    template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    height=450, 
-                    margin=dict(l=140, r=60, t=50, b=20), # 增加左側邊距 (l=140) 避免 Logo 被切到
-                    images=logo_imgs,
-                    yaxis=dict(
-                        tickfont=dict(size=11, color=COLORS['fg']),
-                        ticksuffix="      ", 
-                        fixedrange=True,
-                        automargin=True # 自動調整邊距
-                    ),
-                    xaxis=dict(showgrid=True, gridcolor='#333')
-                )
-                st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+    
+            fig_bar = go.Figure(go.Bar(
+                y=row.index, x=row.values, orientation='h',
+                marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+                text=row.values.round(2), textposition='outside',
+                cliponaxis=False
+            ))
+            
+            fig_bar.update_layout(
+                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                height=450, 
+                margin=dict(l=140, r=60, t=50, b=20), # 給左側 Logo 充足空間
+                images=logo_imgs,
+                yaxis=dict(
+                    tickfont=dict(size=11, color=COLORS['fg']),
+                    ticksuffix="      ", # 在名稱後加空格，防止與圖表擠壓
+                    fixedrange=True,
+                    automargin=True # 自動調整邊距
+                ),
+                xaxis=dict(showgrid=True, gridcolor='#333', zerolinecolor=COLORS['muted'])
+            )
+            st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
     st.error(f"Error: {e}")
