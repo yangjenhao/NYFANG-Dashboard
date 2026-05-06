@@ -5,17 +5,9 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 # --- 1. DESIGN TOKENS ---
-COLORS = {
-    "bg": "#0A0A0A",
-    "card_bg": "#141414",
-    "fg": "#F2F0E4",
-    "gold": "#D4AF37",
-    "muted": "#888888",
-    "up": "#00FF00",
-    "down": "#FF0000"
-}
+COLORS = {"bg": "#0A0A0A", "card_bg": "#141414", "fg": "#F2F0E4", "gold": "#D4AF37", "muted": "#888888", "up": "#00FF00", "down": "#FF0000"}
 
-# --- 2. THEMED CSS INJECTION ---
+# --- 2. THEMED CSS ---
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 st.markdown(f"""
     <style>
@@ -24,8 +16,8 @@ st.markdown(f"""
     h1, .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; letter-spacing: 0.15em; color: {COLORS['gold']} !important; text-align: center; font-size: 1.8rem; }}
     @media (min-width: 768px) {{ section[data-testid="stSidebar"] {{ width: 350px !important; }} }}
     section[data-testid="stSidebar"] {{ background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
-    .stButton>button {{ width: 100%; border-radius: 0px !important; border: 1px solid {COLORS['gold']} !important; background-color: transparent !important; color: {COLORS['gold']} !important; font-size: 0.7rem !important; text-transform: uppercase; }}
     .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; margin-bottom: 10px; }}
+    .stButton>button {{ width: 100%; border-radius: 0px !important; border: 1px solid {COLORS['gold']} !important; background-color: transparent !important; color: {COLORS['gold']} !important; font-size: 0.7rem; text-transform: uppercase; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -36,10 +28,13 @@ INDEX_SYMBOL = "^NYFANG"
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
-    # 針對 TODAY 與 5 DAYS 增加緩衝期
-    fetch_p = "2d" if p == "1d" else ("8d" if p == "5d" else p)
-    # TODAY 1m 間隔，5D 30m 間隔 (避免點位太稀疏導致線斷掉)
-    interval = "1m" if p == "1d" else "30m" if p == "5d" else "1d"
+    # 根據需求切換 Interval
+    if p == "1d":
+        fetch_p, interval = "2d", "1m"
+    elif p == "5d":
+        fetch_p, interval = "10d", "1d" # 5日模式強制改為每日收盤價
+    else:
+        fetch_p, interval = p, "1d"
     
     data = yf.download(all_symbols, period=fetch_p, interval=interval, progress=False, auto_adjust=False)['Close']
     data.index = data.index.tz_localize(None) 
@@ -48,38 +43,34 @@ def fetch_data(p):
 # --- 4. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2>The Terminal</h2>", unsafe_allow_html=True)
-    st.markdown("---")
-    
     period_options = [('TODAY', '1d'), ('V DAYS', '5d'), ('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('I YEAR', '1y')]
     period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=0)
     
     try:
-        init_data = fetch_data("1mo")
-        latest_market_date = init_data.index[-1].date()
+        latest_market_date = fetch_data("1mo").index[-1].date()
     except:
         latest_market_date = datetime.now().date()
 
-    st.session_state.target_date = st.date_input("DEPARTURE DATE", value=latest_market_date, max_value=latest_market_date)
+    if 'target_date' not in st.session_state:
+        st.session_state.target_date = latest_market_date
     
+    st.session_state.target_date = st.date_input("DEPARTURE DATE", value=st.session_state.target_date, max_value=latest_market_date)
     if st.button("GO TODAY"):
         st.session_state.target_date = latest_market_date
         st.rerun()
-
-    st.markdown(f"--- \n<p style='font-size: 0.8rem; color: {COLORS['muted']};'>© 2026 jen-hao.yang</p>", unsafe_allow_html=True)
 
 # --- 5. MAIN CONTENT ---
 try:
     df = fetch_data(period_val)
     idx_series = df[INDEX_SYMBOL]
     
-    # 績效歸因與漲跌計算
+    # 績效歸因
     idx_diff = idx_series.diff()
     returns = df[OFFICIAL_TICKERS].pct_change()
     contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
     for t in returns.index:
         actual_pts = idx_diff.loc[t]
-        r = returns.loc[t]
-        raw_impact = r * 0.1
+        raw_impact = returns.loc[t] * 0.1
         impact_sum = raw_impact.sum()
         contrib_df.loc[t] = raw_impact * (actual_pts / impact_sum) if abs(impact_sum) > 1e-6 else 0
 
@@ -89,8 +80,6 @@ try:
     if not available_data.empty:
         plot_time = available_data.index[-1]
         current_val = idx_series.loc[plot_time]
-        
-        # 獲取前一交易點計算 Variance
         loc = idx_series.index.get_loc(plot_time)
         prev_val = idx_series.iloc[loc-1] if loc > 0 else current_val
         actual_shift = current_val - prev_val
@@ -106,50 +95,34 @@ try:
 
         col1, col2 = st.columns(2)
         with col1:
-            # 趨勢圖修復：確保線條連續 (connectgaps=True)
             fig_idx = go.Figure()
-            # TODAY 模式顯示當天，5D/1M 顯示全部
+            # 5日與長天期模式顯示完整數據，TODAY 僅顯示當天
             show_df = idx_series[idx_series.index.date == plot_time.date()] if period_val == '1d' else idx_series
             
-            fig_idx.add_trace(go.Scatter(
-                x=show_df.index, y=show_df.values,
-                line=dict(color=COLORS['gold'], width=2),
-                connectgaps=True, # 【關鍵】自動連接跨越 gap 的線段
-                hovertemplate="<b>%{x}</b><br>Value: %{y:,.2f}<extra></extra>"
-            ))
+            fig_idx.add_trace(go.Scatter(x=show_df.index, y=show_df.values, line=dict(color=COLORS['gold'], width=2), connectgaps=True, hovertemplate="Value: %{y:,.2f}<extra></extra>"))
             
-            # 設定 X 軸隱藏週末與休市
+            # 【修復】僅在 TODAY 模式使用 rangebreaks，避免長天期數據消失
+            rb = [dict(bounds=["sat", "mon"]), dict(bounds=[16, 9.5], pattern="hour")] if period_val == '1d' else []
+            
             fig_idx.update_layout(
                 template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 margin=dict(l=0, r=0, t=30, b=0), height=400, hovermode="x unified",
-                xaxis=dict(
-                    showgrid=False, color=COLORS['muted'],
-                    rangebreaks=[
-                        dict(bounds=["sat", "mon"]), # 隱藏週末
-                        dict(bounds=[16, 9.5], pattern="hour") # 隱藏收盤時段 (16:00-09:30)
-                    ]
-                ),
+                xaxis=dict(showgrid=False, color=COLORS['muted'], rangebreaks=rb, type='date'), # 強制 type 為 date 修正年份錯誤
                 yaxis=dict(showgrid=True, gridcolor='#333', color=COLORS['muted']),
                 title=dict(text="HISTORICAL TREND", font=dict(color=COLORS['gold'], size=14))
             )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
         with col2:
-            # 歸因圖
             row = contrib_df.loc[plot_time].apply(pd.to_numeric).sort_values(ascending=False)
-            fig_bar = go.Figure(go.Bar(
-                x=row.index, y=row.values,
-                marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-                text=row.values.round(2), textposition='auto'
-            ))
+            fig_bar = go.Figure(go.Bar(x=row.index, y=row.values, marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values], text=row.values.round(2), textposition='auto'))
             fig_bar.update_layout(
                 template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 margin=dict(l=0, r=0, t=30, b=0), height=400,
-                title=dict(text=f"CONTRIBUTION ({plot_time.strftime('%m-%d %H:%M')})", font=dict(color=COLORS['gold'], size=14))
+                title=dict(text=f"CONTRIBUTION ({plot_time.strftime('%m-%d')})", font=dict(color=COLORS['gold'], size=14))
             )
             st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
     else:
-        st.warning("NO DATA AVAILABLE FOR THE SELECTED DATE.")
-            
+        st.warning("NO DATA AVAILABLE FOR SELECTED DATE.")
 except Exception as e:
     st.error(f"TERMINAL OFFLINE: {e}")
