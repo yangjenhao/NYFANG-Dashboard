@@ -26,7 +26,6 @@ st.markdown(f"""
     section[data-testid="stSidebar"] {{ background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
     .stButton>button {{ width: 100%; border-radius: 0px !important; border: 1px solid {COLORS['gold']} !important; background-color: transparent !important; color: {COLORS['gold']} !important; font-size: 0.7rem !important; text-transform: uppercase; }}
     .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; margin-bottom: 10px; }}
-    .sidebar-link {{ color: {COLORS['muted']} !important; text-decoration: none; font-size: 0.8rem; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -37,10 +36,10 @@ INDEX_SYMBOL = "^NYFANG"
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
-    # 為確保有前一收盤價可計算，1d 抓 2d，5d 抓 8d (避開週末)
+    # 針對 TODAY 與 5 DAYS 增加緩衝期
     fetch_p = "2d" if p == "1d" else ("8d" if p == "5d" else p)
-    # TODAY 模式使用 1m 間隔以獲得精細線條
-    interval = "1m" if p == "1d" else "1h" if p == "5d" else "1d"
+    # TODAY 1m 間隔，5D 30m 間隔 (避免點位太稀疏導致線斷掉)
+    interval = "1m" if p == "1d" else "30m" if p == "5d" else "1d"
     
     data = yf.download(all_symbols, period=fetch_p, interval=interval, progress=False, auto_adjust=False)['Close']
     data.index = data.index.tz_localize(None) 
@@ -51,7 +50,7 @@ with st.sidebar:
     st.markdown(f"<h2>The Terminal</h2>", unsafe_allow_html=True)
     st.markdown("---")
     
-    period_options = [('TODAY', '1d'), ('V DAYS', '5d'), ('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('I YEAR', '1y'), ('YTD', 'ytd')]
+    period_options = [('TODAY', '1d'), ('V DAYS', '5d'), ('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('I YEAR', '1y')]
     period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=0)
     
     try:
@@ -60,26 +59,22 @@ with st.sidebar:
     except:
         latest_market_date = datetime.now().date()
 
-    if 'target_date' not in st.session_state:
-        st.session_state.target_date = latest_market_date
-    
-    selected_date = st.date_input("DEPARTURE DATE", value=st.session_state.target_date, max_value=latest_market_date)
-    st.session_state.target_date = selected_date
+    st.session_state.target_date = st.date_input("DEPARTURE DATE", value=latest_market_date, max_value=latest_market_date)
     
     if st.button("GO TODAY"):
         st.session_state.target_date = latest_market_date
         st.rerun()
 
-    st.markdown(f"--- \n<p style='font-size: 0.8rem; color: {COLORS['muted']};'>© 2026 jen-hao.yang<br><a href='https://x.com/jenhaoyang' class='sidebar-link' target='_blank'>FOLLOW ON X</a></p>", unsafe_allow_html=True)
+    st.markdown(f"--- \n<p style='font-size: 0.8rem; color: {COLORS['muted']};'>© 2026 jen-hao.yang</p>", unsafe_allow_html=True)
 
 # --- 5. MAIN CONTENT ---
 try:
     df = fetch_data(period_val)
     idx_series = df[INDEX_SYMBOL]
+    
+    # 績效歸因與漲跌計算
     idx_diff = idx_series.diff()
     returns = df[OFFICIAL_TICKERS].pct_change()
-    
-    # 計算歸因
     contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
     for t in returns.index:
         actual_pts = idx_diff.loc[t]
@@ -95,7 +90,7 @@ try:
         plot_time = available_data.index[-1]
         current_val = idx_series.loc[plot_time]
         
-        # 抓取前一有效交易點 (確保 Variance 準確)
+        # 獲取前一交易點計算 Variance
         loc = idx_series.index.get_loc(plot_time)
         prev_val = idx_series.iloc[loc-1] if loc > 0 else current_val
         actual_shift = current_val - prev_val
@@ -111,29 +106,31 @@ try:
 
         col1, col2 = st.columns(2)
         with col1:
-            # 趨勢圖：隱藏假日與非交易時段
+            # 趨勢圖修復：確保線條連續 (connectgaps=True)
             fig_idx = go.Figure()
+            # TODAY 模式顯示當天，5D/1M 顯示全部
             show_df = idx_series[idx_series.index.date == plot_time.date()] if period_val == '1d' else idx_series
             
             fig_idx.add_trace(go.Scatter(
                 x=show_df.index, y=show_df.values,
                 line=dict(color=COLORS['gold'], width=2),
+                connectgaps=True, # 【關鍵】自動連接跨越 gap 的線段
                 hovertemplate="<b>%{x}</b><br>Value: %{y:,.2f}<extra></extra>"
             ))
             
+            # 設定 X 軸隱藏週末與休市
             fig_idx.update_layout(
                 template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 margin=dict(l=0, r=0, t=30, b=0), height=400, hovermode="x unified",
-                title=dict(text="HISTORICAL TREND", font=dict(color=COLORS['gold'], size=14)),
                 xaxis=dict(
                     showgrid=False, color=COLORS['muted'],
-                    # 【關鍵】：隱藏週末與非交易時段 (美股 16:00 到隔日 09:30)
                     rangebreaks=[
-                        dict(bounds=["sat", "mon"]), # 隱藏週六至週一 (週末)
-                        dict(bounds=[16, 9.5], pattern="hour") # 隱藏下午4點到隔日早上9點半
+                        dict(bounds=["sat", "mon"]), # 隱藏週末
+                        dict(bounds=[16, 9.5], pattern="hour") # 隱藏收盤時段 (16:00-09:30)
                     ]
                 ),
-                yaxis=dict(showgrid=True, gridcolor='#333', color=COLORS['muted'])
+                yaxis=dict(showgrid=True, gridcolor='#333', color=COLORS['muted']),
+                title=dict(text="HISTORICAL TREND", font=dict(color=COLORS['gold'], size=14))
             )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
@@ -148,12 +145,11 @@ try:
             fig_bar.update_layout(
                 template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 margin=dict(l=0, r=0, t=30, b=0), height=400,
-                xaxis=dict(color=COLORS['muted']), yaxis=dict(color=COLORS['muted']),
                 title=dict(text=f"CONTRIBUTION ({plot_time.strftime('%m-%d %H:%M')})", font=dict(color=COLORS['gold'], size=14))
             )
             st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
     else:
-        st.warning("THE SELECTED DATE IS A HOLIDAY OR NO DATA AVAILABLE.")
+        st.warning("NO DATA AVAILABLE FOR THE SELECTED DATE.")
             
 except Exception as e:
     st.error(f"TERMINAL OFFLINE: {e}")
