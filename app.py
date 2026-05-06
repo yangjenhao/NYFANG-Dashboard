@@ -13,7 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：包含強制水平排列的 Flexbox 樣式
+# CSS 修正：強制指標卡片水平並排，並限制電腦版最大寬度
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -32,12 +32,12 @@ st.markdown(f"""
         margin: 10px 0; 
     }}
 
-    /* 強制水平並排的容器 */
+    /* 強制指標卡片在手機上保持水平不換行 */
     .flex-container {{
         display: flex;
         flex-direction: row;
         justify-content: space-between;
-        gap: 10px;
+        gap: 8px;
         margin-bottom: 20px;
     }}
     
@@ -48,10 +48,11 @@ st.markdown(f"""
         padding: 12px 5px; 
         text-align: center; 
         border-radius: 4px; 
+        min-width: 0; /* 防止溢出 */
     }}
 
-    .metric-label {{ color: {COLORS["gold"]}; font-size: 0.75rem; margin-bottom: 4px; }}
-    .metric-value {{ font-size: 1.1rem; font-weight: 600; margin: 0; }}
+    .metric-label {{ color: {COLORS["gold"]}; font-size: 0.7rem; margin-bottom: 2px; }}
+    .metric-value {{ font-size: 1rem; font-weight: 600; margin: 0; }}
     
     section[data-testid="stSidebar"] {{ 
         background-color: #252525 !important; 
@@ -59,7 +60,7 @@ st.markdown(f"""
     }}
 
     .block-container {{
-        max-width: 1000px !important;
+        max-width: 1100px !important;
         padding-top: 1.5rem;
     }}
     </style>
@@ -91,7 +92,6 @@ with st.sidebar:
     st.markdown(f"""
         <div style='padding:10px; font-size:0.85rem; opacity:0.8;'>
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
-            <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
             <hr style="opacity: 0.2;">
             <p>STATUS: <span style="color:{COLORS['up']};">ONLINE</span></p>
         </div>
@@ -105,16 +105,14 @@ selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()
 
 try:
     df = fetch_data(period_map[selected_label])
-    if INDEX_SYMBOL not in df.columns:
-        st.error(f"數據缺失：找不到 {INDEX_SYMBOL}")
-        st.stop()
+    if INDEX_SYMBOL not in df.columns: st.stop()
 
     idx_series = df[INDEX_SYMBOL]
     start, end = idx_series.iloc[0], idx_series.iloc[-1]
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
 
-    # 使用自定義 HTML 替代 st.columns(3)，確保手機不換行
+    # 修正重點 1：使用 Flexbox 確保指標卡片水平對齊
     st.markdown(f"""
         <div class="flex-container">
             <div class="metric-card">
@@ -138,67 +136,48 @@ try:
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
     # --- 圖一：趨勢圖 ---
-    y_min, y_max = idx_series.min(), idx_series.max()
-    padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
-    
     fig_idx = go.Figure(go.Scatter(
         x=idx_series.index, y=idx_series.values, 
         line=dict(color=COLORS['gold'], width=2, shape='spline'),
-        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
-        hoverinfo="x+y"
+        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)'
     ))
-    
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=400, margin=dict(t=20, b=40, l=10, r=10),
-        hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
-        xaxis=dict(
-            showgrid=False, fixedrange=True, showspikes=True,
-            spikecolor="#FF3333", spikethickness=1,
-            tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
-            tickfont=dict(color=COLORS['muted'], size=10),
-            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
-        ),
-        yaxis=dict(
-            gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding],
-            fixedrange=True, tickformat=".0f", tickfont=dict(color=COLORS['muted'], size=10)
-        ),
+        height=380, margin=dict(t=20, b=40, l=10, r=10),
+        xaxis=dict(showgrid=False, tickfont=dict(color=COLORS['muted'], size=10)),
+        yaxis=dict(gridcolor='rgba(128,128,128,0.1)', tickfont=dict(color=COLORS['muted'], size=10)),
         hovermode="x unified"
     )
     st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    # --- 圖二：貢獻度圖 ---
+    # --- 圖二：貢獻度圖 (修正 Logo 定位) ---
+    # 修正重點 2：調小 x 的負值偏移量，確保 Logo 在全寬模式下不消失
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-        xref="paper", yref="y", x=-0.08, y=i,
-        sizex=0.035, sizey=0.45, xanchor="left", yanchor="middle", sizing="contain", layer="above"
+        xref="paper", yref="y", x=-0.06, y=i,
+        sizex=0.03, sizey=0.45, xanchor="left", yanchor="middle", sizing="contain", layer="above"
     ) for i, t in enumerate(row.index)]
 
     ticker_labels = [dict(
-        xref="paper", yref="y", x=-0.04, y=i,
+        xref="paper", yref="y", x=-0.03, y=i,
         text=f"<b>{t}</b>", showarrow=False, xanchor="left", yanchor="middle",
-        font=dict(size=11, color=COLORS['muted'], family="Josefin Sans")
+        font=dict(size=11, color=COLORS['muted'])
     ) for i, t in enumerate(row.index)]
 
     fig_bar = go.Figure(go.Bar(
         y=row.index, x=row.values, orientation='h',
         marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
         text=row.values.round(2), textposition='outside',
-        textfont=dict(color=COLORS['muted'], size=10),
         cliponaxis=False 
     ))
     
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        height=550, margin=dict(l=75, r=40, t=50, b=40),
+        height=550, margin=dict(l=70, r=40, t=50, b=40),
         images=logo_imgs, annotations=ticker_labels,
-        yaxis=dict(showticklabels=False, fixedrange=True),
-        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
-        title=dict(
-            text=f"CONTRIBUTION ({selected_label})", 
-            font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
-            x=0.5, xanchor="center"
-        ),
+        yaxis=dict(showticklabels=False),
+        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)'),
+        title=dict(text=f"CONTRIBUTION ({selected_label})", x=0.5, font=dict(color=COLORS['gold'], size=16)),
         bargap=0.3 
     )
     st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
