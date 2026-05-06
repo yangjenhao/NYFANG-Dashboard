@@ -39,7 +39,6 @@ DOMAIN_MAP = {
 @st.cache_data(ttl=60)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
-    # 1D 使用 1m 間隔，其餘使用 1d
     interval = "1m" if p == "1d" else "1d"
     data = yf.download(all_symbols, period=p, interval=interval, progress=False, auto_adjust=False)['Close']
     if p == "1d" and data.index.tz is not None:
@@ -55,10 +54,7 @@ with st.sidebar:
             <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
             <hr style="border-color:{COLORS['gold']}22;">
             <p>STATUS: <span style="color:{COLORS['up']};">ONLINE</span></p>
-            <p style="font-size:0.75rem; line-height:1.4;">
-                Data calibrated for high-frequency analysis. 
-                Contribution metrics reflect real-time index weighting.
-            </p>
+            <p style="font-size:0.75rem; line-height:1.4;">Dynamic Range Scaling: ENABLED.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -70,47 +66,55 @@ selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()
 
 try:
     df = fetch_data(period_map[selected_label])
-    start, end = df.iloc[0], df.iloc[-1]
-    total_change = end[INDEX_SYMBOL] - start[INDEX_SYMBOL]
+    idx_series = df[INDEX_SYMBOL]
+    start, end = idx_series.iloc[0], idx_series.iloc[-1]
+    total_change = end - start
     
-    # 數據指標卡片
     c1, c2, c3 = st.columns(3)
     color = COLORS['up'] if total_change >= 0 else COLORS['down']
-    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VALUE</p><h2 style="color:{color}">{end[INDEX_SYMBOL]:,.2f}</h2></div>', unsafe_allow_html=True)
+    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VALUE</p><h2 style="color:{color}">{end:,.2f}</h2></div>', unsafe_allow_html=True)
     with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">SHIFT</p><h2 style="color:{color}">{total_change:+.2f}</h2></div>', unsafe_allow_html=True)
-    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VAR %</p><h2 style="color:{color}">{(total_change/start[INDEX_SYMBOL]*100):+.2f}%</h2></div>', unsafe_allow_html=True)
+    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VAR %</p><h2 style="color:{color}">{(total_change/start*100):+.2f}%</h2></div>', unsafe_allow_html=True)
 
     # 貢獻度計算
-    returns = (end[OFFICIAL_TICKERS] / start[OFFICIAL_TICKERS]) - 1
-    # 假設成分股均權 10%，計算貢獻比例
+    returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
     raw_impact = returns * 0.1
     impact_sum = raw_impact.sum()
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
     col1, col2 = st.columns([1.2, 1])
     
-    with col1: # 指數走勢圖
+    with col1: # 指數走勢圖 - 修正 Y 軸曲線
+        y_min, y_max = idx_series.min(), idx_series.max()
+        padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+        
         fig_idx = go.Figure(go.Scatter(
-            x=df.index, y=df[INDEX_SYMBOL], 
-            line=dict(color=COLORS['gold'], width=2),
-            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)'
+            x=idx_series.index, y=idx_series.values, 
+            line=dict(color=COLORS['gold'], width=2, shape='spline'),
+            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+            hoverinfo="x+y"
         ))
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
             height=450, margin=dict(t=20, b=20),
-            xaxis=dict(showgrid=False), yaxis=dict(gridcolor='#222')
+            xaxis=dict(showgrid=False),
+            yaxis=dict(
+                gridcolor='#222', 
+                range=[y_min - padding, y_max + padding], # 關鍵：動態縮放不從0開始
+                fixedrange=True,
+                tickformat=".0f"
+            )
         )
-        st.plotly_chart(fig_idx, use_container_width=True)
+        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2: # 個股貢獻度 (含 Logo)
+    with col2: # 個股貢獻度
         logo_imgs = []
         for i, ticker in enumerate(row.index):
             domain = DOMAIN_MAP.get(ticker, "google.com")
             logo_imgs.append(dict(
                 source=f"https://www.google.com/s2/favicons?sz=64&domain={domain}",
-                xref="paper", yref="y", x=-0.12, y=i,
-                sizex=0.08, sizey=0.8, xanchor="right", yanchor="middle",
-                sizing="contain"
+                xref="paper", yref="y", x=-0.12, y=ticker, # 改用 ticker 作為 y 座標對齊
+                sizex=0.08, sizey=0.8, xanchor="right", yanchor="middle", sizing="contain"
             ))
 
         fig_bar = go.Figure(go.Bar(
@@ -125,11 +129,7 @@ try:
             height=450, margin=dict(l=120, r=50, t=50, b=20),
             title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14)),
             images=logo_imgs,
-            yaxis=dict(
-                tickmode='array', tickvals=list(range(len(row))), ticktext=row.index,
-                ticksuffix="      ", 
-                fixedrange=True
-            ),
+            yaxis=dict(ticksuffix="      ", fixedrange=True),
             xaxis=dict(showgrid=True, gridcolor='#222')
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
