@@ -162,25 +162,17 @@ try:
 
     st.write("") 
 
-    # --- 圖二：貢獻度圖 ---
+    # --- 圖二：貢獻度圖 (僅顯示 Logo 版本) ---
     
-    # 修正重點 1：使用絕對像素偏移 (xshift)，徹底防範文字與 Logo 疊加
-    ticker_labels = [dict(
-        xref="paper", yref="y", 
-        x=0, y=i,
-        xshift=-60, # 強制將文字向左推移 60 像素，留下絕對寬度的安全空間給 Logo
-        text=f"<b>{t}</b>",
-        showarrow=False, xanchor="right", yanchor="middle",
-        font=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
-    ) for i, t in enumerate(row.index)]
-
-    # 修正重點 2：將 Logo 固定在剛剛留出的 60 像素安全空間內
+    # 1. 移除 ticker_labels (公司名稱文字)
+    
+    # 2. 修正 Logo 位置：將 x 設為 0 並將 xanchor 設為 "right"，讓 Logo 貼在 Y 軸左側
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=-0.01,          # 稍微離開軸線
+        x=-0.01,          # 距離 Y 軸極小間距
         y=i,
-        sizex=0.045, sizey=0.45, 
+        sizex=0.05, sizey=0.6, # 稍微放大 Logo 使其更清晰
         xanchor="right", yanchor="middle", sizing="contain", layer="above"
     ) for i, t in enumerate(row.index)]
 
@@ -190,6 +182,23 @@ try:
         text=row.values.round(2), textposition='outside',
         textfont=dict(color=COLORS['muted'], size=10), cliponaxis=False 
     ))
+    
+    fig_bar.update_layout(
+        template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        height=550, 
+        margin=dict(l=60, r=40, t=50, b=40), # 縮小左側邊界 (從 110 降到 60)，因為不再需要容納文字
+        images=logo_imgs,
+        annotations=[],                       # 清空 annotations
+        yaxis=dict(showticklabels=False, fixedrange=True), 
+        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
+        title=dict(
+            text=f"CONTRIBUTION ({selected_label})", 
+            font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
+            x=0.5, xanchor="center"
+        ),
+        bargap=0.3 
+    )
+    st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
     
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
