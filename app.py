@@ -9,7 +9,6 @@ COLORS = {"bg": "#0A0A0A", "card_bg": "#141414", "fg": "#F2F0E4", "gold": "#D4AF
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 優化
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -51,7 +50,7 @@ def fetch_data(p):
     else: data.index = pd.to_datetime(data.index).normalize()
     return data.ffill().dropna()
 
-# --- 3. SIDEBAR (TERMINAL) ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus;'>TERMINAL</h2>", unsafe_allow_html=True)
     st.markdown(f"""
@@ -59,7 +58,7 @@ with st.sidebar:
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
             <p><b>SYSTEM:</b> NYSE FANG+ TERMINAL</p>
             <hr style="border-color:{COLORS['gold']}22;">
-            <p style="font-size:0.8rem;">Visualizing market dynamics through real-time index attribution and trend analysis.</p>
+            <p style="font-size:0.8rem;">Y-axis dynamic scaling enabled for maximum volatility visualization.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -84,29 +83,46 @@ try:
     with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">SHIFT ({selected_label})</p><h3 style="color:{shift_col};">{total_pts_change:+.2f}</h3></div>', unsafe_allow_html=True)
     with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VAR %</p><h3 style="color:{shift_col};">{variance:+.2f}%</h3></div>', unsafe_allow_html=True)
 
+    # 歸因計算
     stock_returns = (end_vals[OFFICIAL_TICKERS] / start_vals[OFFICIAL_TICKERS]) - 1
     raw_impacts = stock_returns * 0.1
     total_impact_sum = raw_impacts.sum()
     cum_contrib = (raw_impacts * (total_pts_change / total_impact_sum)) if abs(total_impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)
 
     col1, col2 = st.columns([1, 1])
+    
     with col1:
+        # 【優化：手動計算 Y 軸範圍以極大化曲線】
+        y_min = idx_series.min()
+        y_max = idx_series.max()
+        y_range = y_max - y_min
+        # 只給 5% 的邊距，讓波動填滿圖表
+        y_padding = y_range * 0.05 if y_range > 0 else 10
+
         fig_idx = go.Figure(go.Scatter(
-            x=df.index, y=df[INDEX_SYMBOL], fill='tozeroy',
-            fillcolor='rgba(212, 175, 55, 0.05)', line=dict(color=COLORS['gold'], width=2),
+            x=df.index, y=df[INDEX_SYMBOL], 
+            fill='tozeroy',
+            fillcolor='rgba(212, 175, 55, 0.03)', 
+            line=dict(color=COLORS['gold'], width=2.5),
             hoverinfo="x+y"
         ))
+        
         xaxis_cfg = dict(showgrid=False, color=COLORS['muted'], fixedrange=True, showspikes=True, spikemode='across', nticks=5)
         if period_val == '1d':
             xaxis_cfg['tickformat'] = "%H:%M"
             xaxis_cfg['range'] = [plot_time.replace(hour=9, minute=30), plot_time.replace(hour=16, minute=0)]
         
-        # 【優化】移除 rangemode='tozero' 以凸顯曲線波動
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
             margin=dict(l=10, r=10, t=20, b=10), height=380, 
             xaxis=xaxis_cfg, 
-            yaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222', nticks=6, autorange=True),
+            yaxis=dict(
+                fixedrange=True, 
+                showgrid=True, 
+                gridcolor='#222', 
+                nticks=6,
+                range=[y_min - y_padding, y_max + y_padding] # 強制鎖定緊湊範圍
+            ),
             hovermode="x"
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
