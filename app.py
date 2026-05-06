@@ -108,29 +108,41 @@ try:
                 template="none", 
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
                 height=450, 
-                margin=dict(t=20, b=40, l=20, r=20), # 增加底部邊距避免標籤切斷
+                margin=dict(t=20, b=40, l=20, r=20),
+                # --- 懸停標籤：改為紅底白字 ---
+                hoverlabel=dict(
+                    bgcolor="#FF3333",              # 紅色背景
+                    font_size=13,
+                    font_color="#FFFFFF",           # 白色文字（紅色背景配白字較清晰）
+                    font_family="Josefin Sans",
+                    bordercolor="#FF3333",          # 紅色邊框
+                    namelength=-1
+                ),
+                # ---------------------------
                 xaxis=dict(
                     showgrid=False, 
                     fixedrange=True,
-                    showspikes=False,    # 關閉滑鼠引導線
-                    showline=False,      # 移除 X 軸底線
-                    zeroline=False,      # 移除 X=0 線
-                    ticks="",            # 移除 X 軸刻度小短線
+                    showspikes=True,
+                    spikecolor="#FF3333",           # 虛線改為紅色
+                    spikethickness=1,
+                    spikedash="dash",               
+                    spikemode="across",
+                    showline=False,      
+                    zeroline=False,      
+                    ticks="",            
                     showticklabels=True,
-                    # 解決日期殘影：強制單一層級顯示格式
-                    tickformat="%H:%M" if selected_label == "1D" else "%m-%d",
+                    tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
                     tickfont=dict(color=COLORS['muted'], size=10),
-                    rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
+                    rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
                 ),
                 yaxis=dict(
-                    gridcolor='rgba(128,128,128,0.2)',
+                    gridcolor='rgba(128,128,128,0.1)',
                     range=[y_min - padding, y_max + padding],
                     fixedrange=True,
                     tickformat=".0f",
-                    # 解決 Y 方向殘影
-                    showline=False,      # 移除左側垂直軸線
-                    zeroline=False,      # 移除 Y=0 基準線
-                    ticks="",            # 移除 Y 軸刻度小短線
+                    showline=False,
+                    zeroline=False,
+                    ticks="",
                     tickfont=dict(color=COLORS['muted'], size=10)
                 ),
                 dragmode=False,
