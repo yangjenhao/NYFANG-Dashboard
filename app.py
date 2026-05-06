@@ -13,6 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
+# CSS 修正：加入針對 Segmented Control (Timeline) 的不換行控制
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -36,10 +37,23 @@ st.markdown(f"""
         border-right: 1px solid rgba(128, 128, 128, 0.1); 
     }}
 
-    /* 限制電腦版寬度，防止圖表過扁 */
     .block-container {{
         max-width: 1000px !important;
         padding-top: 1.5rem;
+    }}
+
+    /* --- 重大修正：強制時間軸 (Timeline) 單行顯示並可橫向滑動 --- */
+    div[data-testid="stSegmentedControl"] {{
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox 隱藏捲軸 */
+    }}
+    div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
+        display: none; /* Chrome/Safari 隱藏捲軸 */
+    }}
+    div[data-testid="stSegmentedControl"] > div {{
+        flex-wrap: nowrap !important;
+        min-width: min-content;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -93,7 +107,7 @@ try:
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 修正 1：使用 Inline HTML 確保在所有裝置上都與上方元件寬度 100% 貼齊且水平排列[cite: 2]
+    # 指標卡 Flexbox 佈局 (維持原樣，完美適應手機端)
     metrics_html = f"""
     <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
@@ -112,7 +126,6 @@ try:
     """
     st.markdown(metrics_html, unsafe_allow_html=True)
 
-    # 數據計算
     returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
     raw_impact = returns * 0.1
     impact_sum = raw_impact.sum()
@@ -125,8 +138,7 @@ try:
     fig_idx = go.Figure(go.Scatter(
         x=idx_series.index, y=idx_series.values, 
         line=dict(color=COLORS['gold'], width=2, shape='spline'),
-        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
-        hoverinfo="x+y"
+        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)', hoverinfo="x+y"
     ))
     
     fig_idx.update_layout(
@@ -148,43 +160,44 @@ try:
     )
     st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    st.write("") # 間隔
+    st.write("") 
 
     # --- 圖二：貢獻度圖 ---
-    # 修正 2：改用原生 ticktext 並加上 &nbsp; 空出 Logo 位置，徹底解決縮放跑位問題[cite: 2]
-    ticker_labels_html = [f"<b>{t}</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" for t in row.index]
+    
+    # 修正重點 1：使用絕對像素偏移 (xshift)，徹底防範文字與 Logo 疊加
+    ticker_labels = [dict(
+        xref="paper", yref="y", 
+        x=0, y=i,
+        xshift=-60, # 強制將文字向左推移 60 像素，留下絕對寬度的安全空間給 Logo
+        text=f"<b>{t}</b>",
+        showarrow=False, xanchor="right", yanchor="middle",
+        font=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
+    ) for i, t in enumerate(row.index)]
 
+    # 修正重點 2：將 Logo 固定在剛剛留出的 60 像素安全空間內
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=0,              # 精確鎖定在圖表的 Y 軸線上[cite: 2]
+        x=-0.01,          # 稍微離開軸線
         y=i,
-        sizex=0.045, sizey=0.5, 
-        xanchor="right",  # 將圖片固定在 Y 軸的左側空間，取代不可靠的 x=-0.12[cite: 2]
-        yanchor="middle", 
-        sizing="contain", layer="above"
+        sizex=0.045, sizey=0.45, 
+        xanchor="right", yanchor="middle", sizing="contain", layer="above"
     ) for i, t in enumerate(row.index)]
 
     fig_bar = go.Figure(go.Bar(
         y=row.index, x=row.values, orientation='h',
         marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
         text=row.values.round(2), textposition='outside',
-        textfont=dict(color=COLORS['muted'], size=10),
-        cliponaxis=False 
+        textfont=dict(color=COLORS['muted'], size=10), cliponaxis=False 
     ))
     
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=90, r=40, t=50, b=40), # l=90 留出固定空間給原生的 Y 軸標籤與 Logo[cite: 2]
+        margin=dict(l=110, r=40, t=50, b=40), # 加大左側邊界 l=110，容納 60px 的偏移與文字長度
         images=logo_imgs,
-        yaxis=dict(
-            showticklabels=True, 
-            ticktext=ticker_labels_html, 
-            tickvals=list(range(len(row.index))),
-            fixedrange=True, 
-            tickfont=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
-        ),
+        annotations=ticker_labels,            # 使用 annotations 替換原生 ticktext
+        yaxis=dict(showticklabels=False, fixedrange=True), # 隱藏原生 Y 軸標籤
         xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
         title=dict(
             text=f"CONTRIBUTION ({selected_label})", 
