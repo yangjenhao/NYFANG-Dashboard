@@ -93,8 +93,7 @@ with st.sidebar:
 # --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
 
-# 修正：移除 YTD，將 5Y 改為 2Y
-period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "1Y": "1y", "2Y": "2y", "MAX": "max"}
+period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "YTD": "ytd", "1Y": "1y", "5Y": "5y", "MAX": "max"}
 selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
 
 try:
@@ -145,7 +144,7 @@ try:
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
         height=380, 
-        margin=dict(t=20, b=40, l=50, r=10), # 保留修正後的 l=50，避免 Y 軸數值被裁切
+        margin=dict(t=20, b=40, l=50, r=10), # 修正：將 l 從 10 改為 50，避免 Y 軸數值被裁切
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
             showgrid=False, fixedrange=True, showspikes=True,
