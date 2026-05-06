@@ -183,14 +183,15 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 1. 調整圖標定位：配合更大的左邊距，x 座標需要同步微調
+        # 1. 統一對齊邏輯：使用 left 錨點並固定在負位移處
+        # sizex 稍微調小 (0.05) 以適應手機窄螢幕
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.12,          # 稍微往右調，讓它跟隨被推向右邊的文字
+            x=-0.25,          # 固定在左側預留空間
             y=i,
-            sizex=0.06, sizey=0.6, 
-            xanchor="right",   
+            sizex=0.05, sizey=0.5, 
+            xanchor="left",   
             yanchor="middle", 
             sizing="contain", 
             layer="above"
@@ -212,27 +213,26 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 2. 核心修改：大幅增加左邊距 (l) 將整個圖表往右推
-            # 同時縮小右邊距 (r) 避免圖表被壓縮太扁
-            margin=dict(l=180, r=30, t=50, b=20), 
+            # 2. 邊距微調：手機版建議 140-150 左右即可，避免過度推擠
+            margin=dict(l=140, r=40, t=50, b=20), 
             images=logo_imgs,
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                automargin=False, # 關閉自動邊距，讓文字聽從我們的定位
+                automargin=False,
                 ticksuffix=" ", 
                 tickfont=dict(
-                    size=12, 
+                    size=11, # 稍微縮小字體以適應手機
                     color=COLORS['muted'], 
                     family="Josefin Sans"
                 )
             ),
             xaxis=dict(
                 showgrid=True, 
-                gridcolor='rgba(128,128,128,0.1)',
-                zerolinecolor='rgba(128,128,128,0.3)',
+                gridcolor='rgba(128,128,128,0.05)',
+                zerolinecolor='rgba(128,128,128,0.2)',
                 fixedrange=True
             ),
             title=dict(
@@ -240,9 +240,8 @@ try:
                 font=dict(color=COLORS['gold'], size=14, family="Josefin Sans"),
                 x=0.5, xanchor="center"
             ),
-            bargap=0.3 
+            bargap=0.4 # 增加條形圖間距，減少視覺擁擠
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
-
 except Exception as e:
     st.error(f"系統錯誤: {e}")
