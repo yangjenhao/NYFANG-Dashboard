@@ -151,17 +151,29 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 1. 調整圖標定位：配合更大的左邊距，x 座標需要同步微調
+        # 1. 建立圖標：固定在 x=-0.2 處
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.12,          # 稍微往右調，讓它跟隨被推向右邊的文字
+            x=-0.22,          # 固定 Logo 的左側起點
             y=i,
             sizex=0.06, sizey=0.6, 
-            xanchor="right",   
+            xanchor="left",   
             yanchor="middle", 
             sizing="contain", 
             layer="above"
+        ) for i, t in enumerate(row.index)]
+
+        # 2. 建立自定義文字標籤：強制左對齊並貼近 Logo
+        ticker_annotations = [dict(
+            xref="paper", yref="y",
+            x=-0.15,          # 文字起點緊跟在 Logo 之後
+            y=i,
+            text=t,           # 顯示 Ticker 名稱
+            showarrow=False,
+            xanchor="left",   # 關鍵：強制文字向左對齊
+            yanchor="middle",
+            font=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
         ) for i, t in enumerate(row.index)]
 
         fig_bar = go.Figure(go.Bar(
@@ -180,22 +192,16 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 2. 核心修改：大幅增加左邊距 (l) 將整個圖表往右推
-            # 同時縮小右邊距 (r) 避免圖表被壓縮太扁
-            margin=dict(l=180, r=30, t=50, b=20), 
+            # 3. 調整邊距：l=160 預留空間給左側的 Logo + 文字
+            margin=dict(l=160, r=40, t=50, b=20), 
             images=logo_imgs,
+            annotations=ticker_annotations, # 加入手動對齊的文字
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                automargin=False, # 關閉自動邊距，讓文字聽從我們的定位
-                ticksuffix=" ", 
-                tickfont=dict(
-                    size=12, 
-                    color=COLORS['muted'], 
-                    family="Josefin Sans"
-                )
+                showticklabels=False, # 隱藏原本亂跳的預設標籤
             ),
             xaxis=dict(
                 showgrid=True, 
