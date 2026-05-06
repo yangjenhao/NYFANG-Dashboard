@@ -45,7 +45,7 @@ st.markdown(f"""
         border-right: 1px solid rgba(128, 128, 128, 0.1); 
     }}
 
-    /* 限制電腦版寬度，避免圖表在寬螢幕過於扁平 */
+    /* 限制電腦版寬度，避免圖表在寬螢幕過於扁平，並確保標籤可見 */
     .reportview-container .main .block-container {{
         max-width: 1000px;
         padding-top: 2rem;
@@ -101,7 +101,6 @@ try:
     start, end = idx_series.iloc[0], idx_series.iloc[-1]
     total_change = end - start
     
-    # 指標卡片保留橫向
     c1, c2, c3 = st.columns(3)
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VALUE</p><h2>{end:,.2f}</h2></div>', unsafe_allow_html=True)
@@ -113,7 +112,7 @@ try:
     impact_sum = raw_impact.sum()
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
-    # --- 圖一：趨勢圖 (置中顯示) ---
+    # --- 圖一：趨勢圖 (全寬) ---
     y_min, y_max = idx_series.min(), idx_series.max()
     padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
     
@@ -126,7 +125,7 @@ try:
     
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=450, 
+        height=400, 
         margin=dict(t=40, b=40, l=10, r=10),
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
@@ -148,20 +147,19 @@ try:
 
     st.markdown('<hr style="opacity: 0.1; margin: 20px 0;">', unsafe_allow_html=True)
 
-    # --- 圖二：貢獻度圖 (放在圖一下方) ---
-    # 優化標籤間距：因改為全寬，x 偏移量需更精準
+    # --- 圖二：貢獻度圖 (放在圖一下面，修正 Logo 定位) ---
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=-0.08,          
+        x=-0.05,          # 縮短偏移量，確保 Logo 顯示在 margin 空間內
         y=i,
-        sizex=0.03, sizey=0.5, 
+        sizex=0.03, sizey=0.45, 
         xanchor="left", yanchor="middle", sizing="contain", layer="above"
     ) for i, t in enumerate(row.index)]
 
     ticker_labels = [dict(
         xref="paper", yref="y",
-        x=-0.045,          
+        x=-0.02,          # 文字緊貼 Logo
         y=i,
         text=f"<b>{t}</b>",
         showarrow=False, xanchor="left", yanchor="middle",
@@ -178,8 +176,8 @@ try:
     
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        height=550, # 增加高度讓 10 個成分股更清晰
-        margin=dict(l=80, r=40, t=50, b=40), 
+        height=550, 
+        margin=dict(l=60, r=40, t=50, b=40), # 提供充足左邊距給標籤
         images=logo_imgs,
         annotations=ticker_labels,
         yaxis=dict(showticklabels=False, fixedrange=True),
