@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- 1. DESIGN TOKENS ---
+# --- 1. DESIGN TOKENS (移除硬編碼背景色) ---
 COLORS = {
     "gold": "#D4AF37", 
     "up": "#3da35d", 
@@ -13,16 +13,18 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：強制指標橫列與高度對齊
+# CSS 修正：讓背景隨系統切換，卡片使用 RGBA 透明度
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
     
+    /* 1. 整體主背景：使用雙大括號避免 f-string 報錯 */
     .stApp {{ 
         background-color: #1E1E1E !important; 
         font-family: 'Josefin Sans', sans-serif; 
     }}
     
+    /* 2. 標題樣式 */
     .main-title {{ 
         font-family: 'Marcellus', serif !important; 
         text-transform: uppercase; 
@@ -31,35 +33,31 @@ st.markdown(f"""
         font-size: 2.2rem; 
         margin: 10px 0; 
     }}
-
-    /* 強制指標在手機版也維持一橫列 */
-    .metric-row {{
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        margin-bottom: 20px;
-    }}
     
+    /* 3. 指標卡片 */
     .metric-card {{ 
-        flex: 1;
         background-color: rgba(128, 128, 128, 0.05); 
         border: 1px solid {COLORS['gold']}22; 
-        padding: 12px 5px; 
+        padding: 15px; 
         text-align: center; 
         border-radius: 4px; 
     }}
     
-    .metric-card h2 {{ font-size: 1.2rem !important; margin: 0; }}
-    .metric-card p {{ margin: 0; font-size: 0.7rem; }}
-
+    /* 4. 側邊欄 */
     section[data-testid="stSidebar"] {{ 
         background-color: #252525 !important; 
         border-right: 1px solid rgba(128, 128, 128, 0.1); 
     }}
+    
+    .sidebar-content {{ 
+        padding: 10px; 
+        font-size: 0.85rem; 
+        opacity: 0.8; 
+    }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. DATA LOGIC ---
+# --- 2. DATA LOGIC (加入安全檢查防止 KeyError) ---
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
 DOMAIN_MAP = {
@@ -72,14 +70,31 @@ DOMAIN_MAP = {
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     interval = "1m" if p == "1d" else "1d"
+    # 修正：確保抓取時處理 MultiIndex 結構
     data = yf.download(all_symbols, period=p, interval=interval, progress=False, auto_adjust=True)
     if data.empty: return pd.DataFrame()
+    
+    # 檢查 Close 欄位是否存在
     df = data['Close'] if 'Close' in data.columns else data
+    
     if p == "1d" and df.index.tz is not None:
         df.index = df.index.tz_convert('America/New_York').tz_localize(None)
     return df.ffill().dropna()
 
-# --- 3. MAIN UI ---
+# --- 3. SIDEBAR TERMINAL ---
+with st.sidebar:
+    st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus; letter-spacing:2px;'>TERMINAL</h2>", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div class='sidebar-content'>
+            <p><b>AUTHOR:</b> Jen-Hao Yang</p>
+            <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
+            <hr style="opacity: 0.2;">
+            <p>STATUS: <span style="color:{COLORS['up']};">ONLINE</span></p>
+            <p style="font-size:0.75rem;">Theme: Adaptive Mode<br>Key Check: ACTIVE</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+# --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
 
 period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "YTD": "ytd", "1Y": "1y", "5Y": "5y", "MAX": "max"}
@@ -87,88 +102,152 @@ selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()
 
 try:
     df = fetch_data(period_map[selected_label])
-    if INDEX_SYMBOL not in df.columns: st.stop()
+    
+    # 關鍵檢查：避免 KeyError
+    if INDEX_SYMBOL not in df.columns:
+        st.error(f"數據缺失：找不到 {INDEX_SYMBOL}")
+        st.stop()
 
     idx_series = df[INDEX_SYMBOL]
     start, end = idx_series.iloc[0], idx_series.iloc[-1]
     total_change = end - start
+    
+    c1, c2, c3 = st.columns(3)
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
+    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VALUE</p><h2>{end:,.2f}</h2></div>', unsafe_allow_html=True)
+    with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">SHIFT</p><h2 style="color:{val_color}">{total_change:+.2f}</h2></div>', unsafe_allow_html=True)
+    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VAR %</p><h2 style="color:{val_color}">{(total_change/start*100):+.2f}%</h2></div>', unsafe_allow_html=True)
 
-    # 指標卡片：改用 HTML Flex 結構確保手機版不換行
-    st.markdown(f"""
-        <div class="metric-row">
-            <div class="metric-card">
-                <p style="color:{COLORS["gold"]};">VALUE</p>
-                <h2>{end:,.2f}</h2>
-            </div>
-            <div class="metric-card">
-                <p style="color:{COLORS["gold"]};">SHIFT</p>
-                <h2 style="color:{val_color}">{total_change:+.2f}</h2>
-            </div>
-            <div class="metric-card">
-                <p style="color:{COLORS["gold"]};">VAR %</p>
-                <h2 style="color:{val_color}">{(total_change/start*100):+.2f}%</h2>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # 貢獻度計算
     returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
     raw_impact = returns * 0.1
     impact_sum = raw_impact.sum()
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
     col1, col2 = st.columns([1.2, 1])
-    # 統一高度設定
-    CHART_HEIGHT = 480 
     
     with col1: # 指數走勢圖
-        y_min, y_max = idx_series.min(), idx_series.max()
-        padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
-        fig_idx = go.Figure(go.Scatter(
-            x=idx_series.index, y=idx_series.values, 
-            line=dict(color=COLORS['gold'], width=2, shape='spline'),
-            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)'
-        ))
-        fig_idx.update_layout(
-            template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            height=CHART_HEIGHT, margin=dict(t=50, b=40, l=50, r=30),
-            xaxis=dict(showgrid=False, tickfont=dict(color=COLORS['muted'], size=10)),
-            yaxis=dict(gridcolor='rgba(128,128,128,0.05)', range=[y_min-padding, y_max+padding]),
-            hovermode="x unified"
-        )
-        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+            y_min, y_max = idx_series.min(), idx_series.max()
+            padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+            
+            fig_idx = go.Figure(go.Scatter(
+                x=idx_series.index, y=idx_series.values, 
+                line=dict(color=COLORS['gold'], width=2, shape='spline'),
+                fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+                hoverinfo="x+y"
+            ))
+            
+            fig_idx.update_layout(
+                template="none", 
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                height=450, 
+                margin=dict(t=20, b=40, l=20, r=20),
+                # --- 懸停標籤：改為紅底白字 ---
+                hoverlabel=dict(
+                    bgcolor="#FF3333",              # 紅色背景
+                    font_size=13,
+                    font_color="#FFFFFF",           # 白色文字（紅色背景配白字較清晰）
+                    font_family="Josefin Sans",
+                    bordercolor="#FF3333",          # 紅色邊框
+                    namelength=-1
+                ),
+                # ---------------------------
+                xaxis=dict(
+                    showgrid=False, 
+                    fixedrange=True,
+                    showspikes=True,
+                    spikecolor="#FF3333",           # 虛線改為紅色
+                    spikethickness=1,
+                    spikedash="dash",               
+                    spikemode="across",
+                    showline=False,      
+                    zeroline=False,      
+                    ticks="",            
+                    showticklabels=True,
+                    tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
+                    tickfont=dict(color=COLORS['muted'], size=10),
+                    rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
+                ),
+                yaxis=dict(
+                    gridcolor='rgba(128,128,128,0.1)',
+                    range=[y_min - padding, y_max + padding],
+                    fixedrange=True,
+                    tickformat=".0f",
+                    showline=False,
+                    zeroline=False,
+                    ticks="",
+                    tickfont=dict(color=COLORS['muted'], size=10)
+                ),
+                dragmode=False,
+                hovermode="x unified"
+            )
+            st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
+        # 1. 建立 Logo：固定在左側邊距 (xref="paper")
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-            xref="paper", yref="y", x=-0.28, y=i,
-            sizex=0.05, sizey=0.5, xanchor="left", yanchor="middle", sizing="contain", layer="above"
+            xref="paper", yref="y", 
+            x=-0.30,          # Logo 的起點（位於邊距內）
+            y=i,
+            sizex=0.05, sizey=0.5, 
+            xanchor="left",   
+            yanchor="middle", 
+            sizing="contain", 
+            layer="above"
         ) for i, t in enumerate(row.index)]
 
+        # 2. 建立自定義 Ticker 文字：鎖定在 Logo 右側
         ticker_labels = [dict(
-            xref="paper", yref="y", x=-0.18, y=i, text=f"<b>{t}</b>",
-            showarrow=False, xanchor="left", yanchor="middle",
+            xref="paper", yref="y",
+            x=-0.22,          # 文字起點緊跟在 Logo 之後，保持固定間距
+            y=i,
+            text=f"<b>{t}</b>", # 加粗標籤，視覺更清晰
+            showarrow=False,
+            xanchor="left",   # 關鍵：強制文字向左對齊
+            yanchor="middle",
             font=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
         ) for i, t in enumerate(row.index)]
 
         fig_bar = go.Figure(go.Bar(
-            y=row.index, x=row.values, orientation='h',
+            y=row.index, 
+            x=row.values, 
+            orientation='h',
             marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-            text=row.values.round(2), textposition='outside',
-            textfont=dict(color=COLORS['muted'], size=10), cliponaxis=False 
+            text=row.values.round(2), 
+            textposition='outside',
+            textfont=dict(color=COLORS['muted'], size=10),
+            cliponaxis=False 
         ))
         
         fig_bar.update_layout(
-            template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            height=CHART_HEIGHT, margin=dict(l=120, r=40, t=50, b=20), 
-            images=logo_imgs, annotations=ticker_labels,
-            yaxis=dict(showgrid=False, showticklabels=False),
-            xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)'),
-            title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14), x=0.5),
+            template="none",
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)',
+            height=450, 
+            # 3. 增加左邊距至 180，為 Logo 和文字騰出空間
+            margin=dict(l=180, r=40, t=50, b=20), 
+            images=logo_imgs,
+            annotations=ticker_labels, # 使用手動定位的標籤
+            yaxis=dict(
+                showgrid=False,
+                showline=False,
+                zeroline=False,
+                fixedrange=True,
+                showticklabels=False, # 關鍵：關閉會造成重疊的預設標籤
+            ),
+            xaxis=dict(
+                showgrid=True, 
+                gridcolor='rgba(128,128,128,0.05)',
+                zerolinecolor='rgba(128,128,128,0.2)',
+                fixedrange=True
+            ),
+            title=dict(
+                text=f"CONTRIBUTION ({selected_label})", 
+                font=dict(color=COLORS['gold'], size=14, family="Josefin Sans"),
+                x=0.5, xanchor="center"
+            ),
             bargap=0.4 
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
-
 except Exception as e:
     st.error(f"系統錯誤: {e}")
