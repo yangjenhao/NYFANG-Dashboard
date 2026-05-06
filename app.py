@@ -41,13 +41,22 @@ INDEX_SYMBOL = "^NYFANG"
 @st.cache_data(ttl=30, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
-    is_intraday = (p == "1d")
-    fetch_p, interval = ("2d", "1m") if is_intraday else (p, "1d")
+    
+    # 邏輯修正：如果是 5D，抓 10 天數據以確保涵蓋 5 個交易日
+    fetch_p = "10d" if p == "5d" else p
+    interval = "1m" if p == "1d" else "1d"
+    
     data = yf.download(all_symbols, period=fetch_p, interval=interval, progress=False, auto_adjust=False)['Close']
-    if is_intraday:
+    
+    if p == "1d":
         if data.index.tz is not None: data.index = data.index.tz_convert('America/New_York').tz_localize(None)
         else: data.index = data.index.tz_localize('UTC').tz_convert('America/New_York').tz_localize(None)
-    else: data.index = pd.to_datetime(data.index).normalize()
+    else:
+        data.index = pd.to_datetime(data.index).normalize()
+        # 如果是 5D 模式，僅取最後 5 筆（即最近 5 個交易日）
+        if p == "5d":
+            data = data.tail(5)
+            
     return data.ffill().dropna()
 
 # --- 3. SIDEBAR ---
@@ -58,7 +67,7 @@ with st.sidebar:
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
             <p><b>SYSTEM:</b> NYSE FANG+ TERMINAL</p>
             <hr style="border-color:{COLORS['gold']}22;">
-            <p style="font-size:0.8rem;">Y-axis dynamic scaling enabled for maximum volatility visualization.</p>
+            <p style="font-size:0.8rem;">Current Mode: Multi-day trading session alignment enabled.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -72,6 +81,7 @@ period_val = period_map[selected_label]
 try:
     df = fetch_data(period_val)
     idx_series = df[INDEX_SYMBOL]
+    
     start_vals, end_vals = df.iloc[0], df.iloc[-1]
     plot_time = df.index[-1]
     total_pts_change = end_vals[INDEX_SYMBOL] - start_vals[INDEX_SYMBOL]
@@ -83,7 +93,7 @@ try:
     with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">SHIFT ({selected_label})</p><h3 style="color:{shift_col};">{total_pts_change:+.2f}</h3></div>', unsafe_allow_html=True)
     with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VAR %</p><h3 style="color:{shift_col};">{variance:+.2f}%</h3></div>', unsafe_allow_html=True)
 
-    # 歸因計算
+    # 累積歸因
     stock_returns = (end_vals[OFFICIAL_TICKERS] / start_vals[OFFICIAL_TICKERS]) - 1
     raw_impacts = stock_returns * 0.1
     total_impact_sum = raw_impacts.sum()
@@ -92,17 +102,14 @@ try:
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        # 【優化：手動計算 Y 軸範圍以極大化曲線】
-        y_min = idx_series.min()
-        y_max = idx_series.max()
+        # 強化的 Y 軸縮放
+        y_min, y_max = idx_series.min(), idx_series.max()
         y_range = y_max - y_min
-        # 只給 5% 的邊距，讓波動填滿圖表
         y_padding = y_range * 0.05 if y_range > 0 else 10
 
         fig_idx = go.Figure(go.Scatter(
             x=df.index, y=df[INDEX_SYMBOL], 
-            fill='tozeroy',
-            fillcolor='rgba(212, 175, 55, 0.03)', 
+            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.03)', 
             line=dict(color=COLORS['gold'], width=2.5),
             hoverinfo="x+y"
         ))
@@ -111,18 +118,15 @@ try:
         if period_val == '1d':
             xaxis_cfg['tickformat'] = "%H:%M"
             xaxis_cfg['range'] = [plot_time.replace(hour=9, minute=30), plot_time.replace(hour=16, minute=0)]
+        elif period_val == '5d':
+            # 5D 模式下強制標註日期，避免混亂
+            xaxis_cfg['tickformat'] = "%m/%d"
         
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
             margin=dict(l=10, r=10, t=20, b=10), height=380, 
             xaxis=xaxis_cfg, 
-            yaxis=dict(
-                fixedrange=True, 
-                showgrid=True, 
-                gridcolor='#222', 
-                nticks=6,
-                range=[y_min - y_padding, y_max + y_padding] # 強制鎖定緊湊範圍
-            ),
+            yaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222', nticks=6, range=[y_min - y_padding, y_max + y_padding]),
             hovermode="x"
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
