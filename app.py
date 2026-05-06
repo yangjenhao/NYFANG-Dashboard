@@ -25,20 +25,19 @@ st.markdown(f"""
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     
     if p == "1d":
-        # 抓取 1d 數據，僅取當天分鐘線
         data = yf.download(all_symbols, period="1d", interval="1m", progress=False, auto_adjust=False)['Close']
-        if data.index.tz is not None: 
-            data.index = data.index.tz_convert('America/New_York').tz_localize(None)
+        if data.index.tz is not None: data.index = data.index.tz_convert('America/New_York').tz_localize(None)
     elif p == "5d":
         raw = yf.download(all_symbols, period="1mo", interval="1d", progress=False, auto_adjust=False)['Close']
         raw.index = pd.to_datetime(raw.index).normalize()
         data = raw.dropna(subset=[INDEX_SYMBOL]).tail(5)
     else:
+        # 針對 1Y, 5Y, MAX 使用日線
         data = yf.download(all_symbols, period=p, interval="1d", progress=False, auto_adjust=False)['Close']
         data.index = pd.to_datetime(data.index).normalize()
             
@@ -52,14 +51,15 @@ with st.sidebar:
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
             <p><b>SYSTEM:</b> NYSE FANG+ TERMINAL</p>
             <hr style="border-color:{COLORS['gold']}22;">
-            <p style="font-size:0.8rem;">Trading Hours Filter: ACTIVE.<br>Removing non-market sessions.</p>
+            <p style="font-size:0.8rem;">Historical Depth: MAX.<br>Dynamic Range Scaling: OPTIMIZED.</p>
         </div>
     """, unsafe_allow_html=True)
 
 # --- 4. MAIN LAYOUT ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
 
-period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "YTD": "ytd", "1Y": "1y", "5Y": "5y"}
+# 更新時間軸選項，加入 MAX
+period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "YTD": "ytd", "1Y": "1y", "5Y": "5y", "MAX": "max"}
 selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
 period_val = period_map[selected_label]
 
@@ -89,32 +89,28 @@ try:
     
     with col1:
         y_min, y_max = idx_series.min(), idx_series.max()
-        y_padding = (y_max - y_min) * 0.05 if (y_max - y_min) > 0 else 10
+        # 長線（1Y以上）增加緩衝區至 10%，短線維持 5%
+        pad_factor = 0.10 if selected_label in ["1Y", "5Y", "MAX"] else 0.05
+        y_padding = (y_max - y_min) * pad_factor if (y_max - y_min) > 0 else 10
         
-        # 1D 模式顯示完整時間，其餘顯示日期
-        x_axis_data = df.index if period_val == '1d' else df.index.strftime('%m/%d')
+        # 軸線類型：1D 用日期，5D 用類別（去週末），長線用日期（顯示年分）
+        is_long_term = selected_label in ["1M", "6M", "YTD", "1Y", "5Y", "MAX"]
+        x_axis_data = df.index if (period_val == '1d' or is_long_term) else df.index.strftime('%m/%d')
 
         fig_idx = go.Figure(go.Scatter(
             x=x_axis_data, y=df[INDEX_SYMBOL], 
             fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.03)', 
-            line=dict(color=COLORS['gold'], width=2.5),
+            line=dict(color=COLORS['gold'], width=2.5 if not is_long_term else 1.8),
             hoverinfo="x+y"
         ))
         
-        # 【優化關鍵】針對 1D 模式過濾非交易時段的長直線
         xaxis_params = dict(
-            type='date' if period_val == '1d' else 'category',
-            showgrid=False, color=COLORS['muted'], fixedrange=True, nticks=5
+            type='date' if (period_val == '1d' or is_long_term) else 'category',
+            showgrid=False, color=COLORS['muted'], fixedrange=True, nticks=6
         )
         
         if period_val == '1d':
-            # 過濾週末 (sat, sun) 與 每日 16:00 - 09:30 的空白
-            fig_idx.update_xaxes(
-                rangebreaks=[
-                    dict(bounds=["sat", "mon"]), 
-                    dict(bounds=[16, 9.5], pattern="hour")
-                ]
-            )
+            fig_idx.update_xaxes(rangebreaks=[dict(bounds=[16, 9.5], pattern="hour"), dict(bounds=["sat", "mon"])])
 
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
