@@ -120,36 +120,36 @@ try:
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2: # 個股貢獻度 - 修正 MU 墊底版本
+    with col2:
             logo_imgs = []
             shapes = [] 
             
-            # 取得排序後的 index 列表
             tickers = list(row.index)
             
             for i, ticker in enumerate(tickers):
                 domain = DOMAIN_MAP.get(ticker, "google.com")
                 
-                # 中心點設定：x=-0.12 是 Logo 的位置
-                # 墊底圓形：僅針對 Logo 是深色或需要突出的 MU
+                # 針對 MU 增加「發光」效果，而非白底
                 if ticker == "MU":
-                    shapes.append(dict(
-                        type="circle",
-                        xref="paper", yref="y",
-                        x0=-0.155, x1=-0.085, # 水平範圍包圍 Logo
-                        y0=i - 0.3, y1=i + 0.3, # 垂直範圍對應 Y 軸索引高度
-                        fillcolor="white",
-                        line_width=0,
-                        layer="below"
-                    ))
+                    # 疊加三層極淡的白色，形成柔和的背光感
+                    for opacity, size in zip([0.15, 0.1, 0.05], [0.35, 0.45, 0.55]):
+                        shapes.append(dict(
+                            type="circle",
+                            xref="paper", yref="y",
+                            x0=-0.12 - (size*0.08), x1=-0.12 + (size*0.08),
+                            y0=i - size, y1=i + size,
+                            fillcolor=f"rgba(255, 255, 255, {opacity})",
+                            line_width=0,
+                            layer="below"
+                        ))
     
                 # 主要 Logo
                 logo_imgs.append(dict(
-                    source=f"https://www.google.com/s2/favicons?sz=128&domain={domain}", # 提升解析度到 128
+                    source=f"https://www.google.com/s2/favicons?sz=128&domain={domain}",
                     xref="paper", yref="y", 
-                    x=-0.12, y=i, # 使用索引值 i 定位高度
+                    x=-0.12, y=i,
                     sizex=0.08, sizey=0.7, 
-                    xanchor="center", # 改為 center 更容易對齊墊底圓形
+                    xanchor="center", 
                     yanchor="middle", 
                     sizing="contain", 
                     layer="above"
@@ -171,8 +171,7 @@ try:
                 yaxis=dict(
                     tickfont=dict(size=11, color=COLORS['fg']),
                     ticksuffix="      ", 
-                    fixedrange=True,
-                    automargin=False # 手動 margin 較穩定
+                    fixedrange=True
                 ),
                 xaxis=dict(showgrid=True, gridcolor='#333', zerolinecolor=COLORS['muted']),
                 title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14))
