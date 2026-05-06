@@ -93,42 +93,50 @@ try:
 
     col1, col2 = st.columns([1.2, 1])
     
-    with col1: # 指數走勢圖
-        y_min, y_max = idx_series.min(), idx_series.max()
-        padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
-        
-        fig_idx = go.Figure(go.Scatter(
-            x=idx_series.index, y=idx_series.values, 
-            line=dict(color=COLORS['gold'], width=2, shape='spline'),
-            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
-            hoverinfo="x+y"
-        ))
-        
-        # 設定垂直虛線引導與隱藏週末
-        fig_idx.update_xaxes(
-            showgrid=False,
-            fixedrange=True,
-            showspikes=True, # 開啟虛線
-            spikethickness=1,
-            spikedash="dot",
-            spikemode="across",
-            spikecolor=COLORS['muted'],
-            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None # 隱藏週末
-        )
-        
-        fig_idx.update_layout(
-            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            height=450, margin=dict(t=20, b=20),
-            yaxis=dict(
-                gridcolor='#333', 
-                range=[y_min - padding, y_max + padding],
-                fixedrange=True,
-                tickformat=".0f"
-            ),
-            dragmode=False,
-            hovermode="x unified" # 統一樣式以便讀取
-        )
-        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+    with col1: # 指數走勢圖 - 強制顯示最後日期版本
+            y_min, y_max = idx_series.min(), idx_series.max()
+            padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+            
+            # 修正：針對 5D 將日期轉為字串標籤，防止 Plotly 自動隱藏最後一格
+            if selected_label == "5D":
+                x_plot = idx_series.index.strftime('%m/%d')
+                x_type = 'category'
+            else:
+                x_plot = idx_series.index
+                x_type = 'date'
+            
+            fig_idx = go.Figure(go.Scatter(
+                x=x_plot, y=idx_series.values, 
+                line=dict(color=COLORS['gold'], width=2, shape='spline'),
+                fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+                hoverinfo="x+y"
+            ))
+            
+            fig_idx.update_layout(
+                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                height=450, margin=dict(t=20, b=20),
+                xaxis=dict(
+                    type=x_type, # 5D 時為類別軸
+                    showgrid=False,
+                    fixedrange=True,
+                    tickmode='linear' if selected_label == "5D" else 'auto', # 強制線性排列標籤
+                    showspikes=True,
+                    spikethickness=1,
+                    spikedash="dot",
+                    spikemode="across",
+                    spikecolor=COLORS['muted'],
+                    rangebreaks=[dict(bounds=["sat", "mon"])] if x_type == 'date' else None
+                ),
+                yaxis=dict(
+                    gridcolor='#333', 
+                    range=[y_min - padding, y_max + padding],
+                    fixedrange=True,
+                    tickformat=".0f"
+                ),
+                dragmode=False,
+                hovermode="x unified"
+            )
+            st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2:
             logo_imgs = []
