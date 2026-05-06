@@ -12,11 +12,8 @@ st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
     .stApp {{ background-color: {COLORS['bg']}; color: {COLORS['fg']}; font-family: 'Josefin Sans', sans-serif; }}
-    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: clamp(1.4rem, 6vw, 2.2rem); margin: 10px 0; }}
-    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 12px; text-align: center; margin-bottom: 10px; }}
-    /* 強制 Logo 垂直居中與間距 */
-    .logo-container {{ display: flex; flex-direction: column; justify-content: space-around; height: 350px; padding-top: 45px; }}
-    .logo-item {{ height: 32px; display: flex; align-items: center; justify-content: center; }}
+    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; }}
+    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -25,71 +22,71 @@ OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA
 INDEX_SYMBOL = "^NYFANG"
 DOMAIN_MAP = {"META": "meta.com", "AAPL": "apple.com", "AMZN": "amazon.com", "NFLX": "netflix.com", "MSFT": "microsoft.com", "GOOGL": "google.com", "MU": "micron.com", "NVDA": "nvidia.com", "PLTR": "palantir.com", "AVGO": "broadcom.com"}
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=60)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     data = yf.download(all_symbols, period=p, interval="1d" if p != "1d" else "1m", progress=False)['Close']
     return data.ffill().dropna()
 
-# --- 3. MAIN LAYOUT ---
+# --- 3. UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
-
 period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "YTD": "ytd", "1Y": "1y", "5Y": "5y", "MAX": "max"}
 selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
-period_val = period_map[selected_label]
 
 try:
-    df = fetch_data(period_val)
-    start_vals, end_vals = df.iloc[0], df.iloc[-1]
-    total_pts_change = end_vals[INDEX_SYMBOL] - start_vals[INDEX_SYMBOL]
-    shift_col = COLORS['up'] if total_pts_change >= 0 else COLORS['down']
-
+    df = fetch_data(period_map[selected_label])
+    start, end = df.iloc[0], df.iloc[-1]
+    total_change = end[INDEX_SYMBOL] - start[INDEX_SYMBOL]
+    
     # Metrics
     c1, c2, c3 = st.columns(3)
-    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VALUE</p><h3 style="color:{shift_col};">{end_vals[INDEX_SYMBOL]:,.2f}</h3></div>', unsafe_allow_html=True)
-    with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">SHIFT</p><h3 style="color:{shift_col};">{total_pts_change:+.2f}</h3></div>', unsafe_allow_html=True)
-    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VAR %</p><h3 style="color:{shift_col};">{(total_pts_change/start_vals[INDEX_SYMBOL]*100):+.2f}%</h3></div>', unsafe_allow_html=True)
+    color = COLORS['up'] if total_change >= 0 else COLORS['down']
+    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}">VALUE</p><h2 style="color:{color}">{end[INDEX_SYMBOL]:,.2f}</h2></div>', unsafe_allow_html=True)
+    with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}">SHIFT</p><h2 style="color:{color}">{total_change:+.2f}</h2></div>', unsafe_allow_html=True)
+    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}">VAR %</p><h2 style="color:{color}">{(total_change/start[INDEX_SYMBOL]*100):+.2f}%</h2></div>', unsafe_allow_html=True)
 
-    # Attribution Logic
-    stock_returns = (end_vals[OFFICIAL_TICKERS] / start_vals[OFFICIAL_TICKERS]) - 1
-    raw_impacts = stock_returns * 0.1
-    row = (raw_impacts * (total_pts_change / raw_impacts.sum())).sort_values(ascending=True)
+    # Contribution Calculation
+    returns = (end[OFFICIAL_TICKERS] / start[OFFICIAL_TICKERS]) - 1
+    row = (returns * 0.1 * (total_change / (returns * 0.1).sum())).sort_values(ascending=True)
 
     col1, col2 = st.columns([1.2, 1])
     
     with col1:
-        fig_idx = go.Figure(go.Scatter(x=df.index, y=df[INDEX_SYMBOL], line=dict(color=COLORS['gold'], width=2), fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)'))
-        fig_idx.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=10, r=10, t=20, b=10), height=400)
+        fig_idx = go.Figure(go.Scatter(x=df.index, y=df[INDEX_SYMBOL], line=dict(color=COLORS['gold'], width=2)))
+        fig_idx.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=450, margin=dict(t=20))
         st.plotly_chart(fig_idx, use_container_width=True)
 
     with col2:
-        st.markdown(f"<p style='color:{COLORS['gold']}; font-weight:600; margin-bottom:10px;'>CONTRIBUTION ({selected_label})</p>", unsafe_allow_html=True)
-        
-        # 使用更穩定的 Column 佈局來排版 Logo 與 圖表
-        inner_logo, inner_chart = st.columns([0.15, 0.85])
-        
-        with inner_logo:
-            # 這裡使用 CSS 控制 Logo 垂直分布，避開 Plotly 內部渲染問題
-            logo_html = "".join([f'<div class="logo-item"><img src="https://logo.clearbit.com/{DOMAIN_MAP[t]}" width="22"></div>' for t in row.index[::-1]])
-            st.markdown(f'<div class="logo-container">{logo_html}</div>', unsafe_allow_html=True)
-
-        with inner_chart:
-            fig_bar = go.Figure(go.Bar(
-                y=row.index, x=row.values, orientation='h',
-                marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-                text=row.values.round(2),
-                textposition='outside', # 確保數字在條形圖外，不與名稱重疊
-                cliponaxis=False
+        # 構建 Logo 列表
+        logo_imgs = []
+        for i, ticker in enumerate(row.index):
+            domain = DOMAIN_MAP[ticker]
+            logo_imgs.append(dict(
+                source=f"https://www.google.com/s2/favicons?sz=64&domain={domain}",
+                xref="paper", yref="y", x=-0.12, y=i,
+                sizex=0.08, sizey=0.8, xanchor="right", yanchor="middle"
             ))
-            fig_bar.update_layout(
-                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=0, r=40, t=10, b=10), # 左邊距設為 0 因為 Logo 已獨立
-                height=400,
-                showlegend=False,
-                xaxis=dict(showgrid=True, gridcolor='#222', fixedrange=True),
-                yaxis=dict(fixedrange=True, tickfont=dict(size=12, color=COLORS['fg']))
-            )
-            st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+
+        fig_bar = go.Figure(go.Bar(
+            y=row.index, x=row.values, orientation='h',
+            marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+            text=row.values.round(2), textposition='outside', # 數字放外面
+            cliponaxis=False
+        ))
+        
+        fig_bar.update_layout(
+            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            height=450, margin=dict(l=120, r=50, t=50, b=20), # 加大左邊距給 Logo
+            title=f"CONTRIBUTION ({selected_label})",
+            images=logo_imgs,
+            yaxis=dict(
+                tickmode='array', tickvals=list(range(len(row))), ticktext=row.index,
+                ticksuffix="      ", # 在名稱後加空格，防止與數字/圖表擠壓
+                fixedrange=True
+            ),
+            xaxis=dict(showgrid=True, gridcolor='#222')
+        )
+        st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
-    st.error(f"SYSTEM ERROR: {e}")
+    st.error(f"Error: {e}")
