@@ -42,24 +42,25 @@ INDEX_SYMBOL = "^NYFANG"
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     
-    # 邏輯修正：5D 模式下抓取 14 天數據以應對假日與週末，確保能湊滿 5 個開盤日
-    fetch_p = "14d" if p == "5d" else p
-    interval = "1m" if p == "1d" else "1d"
-    
-    data = yf.download(all_symbols, period=fetch_p, interval=interval, progress=False, auto_adjust=False)['Close']
-    
-    if p == "1d":
-        if data.index.tz is not None: data.index = data.index.tz_convert('America/New_York').tz_localize(None)
-        else: data.index = data.index.tz_localize('UTC').tz_convert('America/New_York').tz_localize(None)
+    # 【核心修正】：如果是 5D 模式，直接抓 1 個月數據，再手動篩選最後 5 個開盤日
+    if p == "5d":
+        raw_data = yf.download(all_symbols, period="1mo", interval="1d", progress=False, auto_adjust=False)['Close']
+        raw_data.index = pd.to_datetime(raw_data.index).normalize()
+        # 確保取到的是最近 5 個不同的交易日（會包含 4/29, 4/30）
+        data = raw_data.tail(5)
+    elif p == "1d":
+        data = yf.download(all_symbols, period="2d", interval="1m", progress=False, auto_adjust=False)['Close']
+        if data.index.tz is not None: 
+            data.index = data.index.tz_convert('America/New_York').tz_localize(None)
+        else: 
+            data.index = data.index.tz_localize('UTC').tz_convert('America/New_York').tz_localize(None)
     else:
+        data = yf.download(all_symbols, period=p, interval="1d", progress=False, auto_adjust=False)['Close']
         data.index = pd.to_datetime(data.index).normalize()
-        # 強制過濾並僅保留最近的 5 個開盤日（4/29, 4/30 等）
-        if p == "5d":
-            data = data.tail(5)
             
     return data.ffill().dropna()
 
-# --- 3. SIDEBAR (TERMINAL) ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus;'>TERMINAL</h2>", unsafe_allow_html=True)
     st.markdown(f"""
@@ -67,7 +68,7 @@ with st.sidebar:
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
             <p><b>SYSTEM:</b> NYSE FANG+ TERMINAL</p>
             <hr style="border-color:{COLORS['gold']}22;">
-            <p style="font-size:0.8rem;">Session Alignment: Enabled. <br>Fetching 5-day trading window including late April sessions.</p>
+            <p style="font-size:0.8rem;">Current Logic: Exact Trading Day Extraction (5-Day Rolling Window).</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -82,7 +83,6 @@ try:
     df = fetch_data(period_val)
     idx_series = df[INDEX_SYMBOL]
     
-    # 點位定義
     start_vals = df.iloc[0]
     end_vals = df.iloc[-1]
     plot_time = df.index[-1]
@@ -91,23 +91,20 @@ try:
     variance = (total_pts_change / start_vals[INDEX_SYMBOL]) * 100
     shift_col = COLORS['up'] if total_pts_change >= 0 else COLORS['down']
 
-    # 指標顯示
     c1, c2, c3 = st.columns(3)
     with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VALUE</p><h3 style="color:{shift_col};">{end_vals[INDEX_SYMBOL]:,.2f}</h3></div>', unsafe_allow_html=True)
     with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">SHIFT ({selected_label})</p><h3 style="color:{shift_col};">{total_pts_change:+.2f}</h3></div>', unsafe_allow_html=True)
     with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VAR %</p><h3 style="color:{shift_col};">{variance:+.2f}%</h3></div>', unsafe_allow_html=True)
 
-    # 歸因計算 (對齊交易日)
+    # 歸因計算
     stock_returns = (end_vals[OFFICIAL_TICKERS] / start_vals[OFFICIAL_TICKERS]) - 1
     raw_impacts = stock_returns * 0.1
     total_impact_sum = raw_impacts.sum()
     cum_contrib = (raw_impacts * (total_pts_change / total_impact_sum)) if abs(total_impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)
 
-    # 圖表佈局
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        # 強化的 Y 軸縮放
         y_min, y_max = idx_series.min(), idx_series.max()
         y_range = y_max - y_min
         y_padding = y_range * 0.05 if y_range > 0 else 10
@@ -120,12 +117,10 @@ try:
         ))
         
         xaxis_cfg = dict(showgrid=False, color=COLORS['muted'], fixedrange=True, showspikes=True, spikemode='across', nticks=5)
-        
         if period_val == '1d':
             xaxis_cfg['tickformat'] = "%H:%M"
-            xaxis_cfg['range'] = [plot_time.replace(hour=9, minute=30), plot_time.replace(hour=16, minute=0)]
         else:
-            xaxis_cfg['tickformat'] = "%m/%d" # 確保 5D 顯示日期如 04/29, 04/30
+            xaxis_cfg['tickformat'] = "%m/%d"
         
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
