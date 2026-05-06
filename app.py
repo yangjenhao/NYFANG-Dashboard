@@ -143,7 +143,8 @@ try:
     
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=380, margin=dict(t=20, b=40, l=10, r=10),
+        height=380, 
+        margin=dict(t=20, b=40, l=50, r=10), # 修正：將 l 從 10 改為 50，避免 Y 軸數值被裁切
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
             showgrid=False, fixedrange=True, showspikes=True,
@@ -184,9 +185,9 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=60, r=40, t=50, b=40), # 邊界縮小，僅保留 Logo 空間
+        margin=dict(l=60, r=40, t=50, b=40), 
         images=logo_imgs,
-        annotations=[],                       # 清空 annotations，移除公司文字標籤
+        annotations=[],                       
         yaxis=dict(showticklabels=False, fixedrange=True), 
         xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
         title=dict(
