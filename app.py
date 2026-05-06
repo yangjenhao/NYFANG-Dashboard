@@ -13,23 +13,10 @@ st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
     .stApp {{ background-color: {COLORS['bg']}; color: {COLORS['fg']}; font-family: 'Josefin Sans', sans-serif; }}
-    .main-title {{ 
-        font-family: 'Marcellus', serif !important; 
-        text-transform: uppercase; 
-        color: {COLORS['gold']} !important; 
-        text-align: center; 
-        font-size: clamp(1.4rem, 6vw, 2.2rem); 
-        margin: 10px 0;
-    }}
+    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: clamp(1.4rem, 6vw, 2.2rem); margin: 10px 0; }}
     section[data-testid="stSidebar"] {{ background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
     .sidebar-content {{ padding: 20px; font-size: 0.9rem; color: {COLORS['muted']}; }}
-    .metric-card {{ 
-        background-color: {COLORS['card_bg']}; 
-        border: 1px solid {COLORS['gold']}33; 
-        padding: 12px; 
-        text-align: center; 
-        margin-bottom: 10px; 
-    }}
+    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 12px; text-align: center; margin-bottom: 10px; }}
     div[data-testid="stHorizontalBlock"] {{ justify-content: center; }}
     </style>
 """, unsafe_allow_html=True)
@@ -42,11 +29,11 @@ INDEX_SYMBOL = "^NYFANG"
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     
-    # 【核心修正】：如果是 5D 模式，直接抓 1 個月數據，再手動篩選最後 5 個開盤日
     if p == "5d":
+        # 抓取 1 個月確保數據覆蓋 4/30 至 5/6
         raw_data = yf.download(all_symbols, period="1mo", interval="1d", progress=False, auto_adjust=False)['Close']
         raw_data.index = pd.to_datetime(raw_data.index).normalize()
-        # 確保取到的是最近 5 個不同的交易日（會包含 4/29, 4/30）
+        # 精確取最後 5 個交易日：4/30, 5/1, 5/4, 5/5, 5/6
         data = raw_data.tail(5)
     elif p == "1d":
         data = yf.download(all_symbols, period="2d", interval="1m", progress=False, auto_adjust=False)['Close']
@@ -60,7 +47,7 @@ def fetch_data(p):
             
     return data.ffill().dropna()
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR (TERMINAL) ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus;'>TERMINAL</h2>", unsafe_allow_html=True)
     st.markdown(f"""
@@ -68,7 +55,7 @@ with st.sidebar:
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
             <p><b>SYSTEM:</b> NYSE FANG+ TERMINAL</p>
             <hr style="border-color:{COLORS['gold']}22;">
-            <p style="font-size:0.8rem;">Current Logic: Exact Trading Day Extraction (5-Day Rolling Window).</p>
+            <p style="font-size:0.8rem;">Current Target: 4/30 - 5/6 Window. <br>Category-based axis mapping enabled.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -85,7 +72,6 @@ try:
     
     start_vals = df.iloc[0]
     end_vals = df.iloc[-1]
-    plot_time = df.index[-1]
     
     total_pts_change = end_vals[INDEX_SYMBOL] - start_vals[INDEX_SYMBOL]
     variance = (total_pts_change / start_vals[INDEX_SYMBOL]) * 100
@@ -106,21 +92,25 @@ try:
     
     with col1:
         y_min, y_max = idx_series.min(), idx_series.max()
-        y_range = y_max - y_min
-        y_padding = y_range * 0.05 if y_range > 0 else 10
+        y_padding = (y_max - y_min) * 0.05 if (y_max - y_min) > 0 else 10
+        
+        # 轉換日期格式以支援類別軸
+        x_axis_data = df.index.strftime('%m/%d') if period_val != '1d' else df.index
 
         fig_idx = go.Figure(go.Scatter(
-            x=df.index, y=df[INDEX_SYMBOL], 
+            x=x_axis_data, y=df[INDEX_SYMBOL], 
             fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.03)', 
             line=dict(color=COLORS['gold'], width=2.5),
             hoverinfo="x+y"
         ))
         
-        xaxis_cfg = dict(showgrid=False, color=COLORS['muted'], fixedrange=True, showspikes=True, spikemode='across', nticks=5)
-        if period_val == '1d':
-            xaxis_cfg['tickformat'] = "%H:%M"
-        else:
-            xaxis_cfg['tickformat'] = "%m/%d"
+        xaxis_cfg = dict(
+            type='category' if period_val != '1d' else 'date',
+            showgrid=False, 
+            color=COLORS['muted'], 
+            fixedrange=True, 
+            nticks=5
+        )
         
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
@@ -141,10 +131,10 @@ try:
         fig_bar.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
             margin=dict(l=10, r=10, t=20, b=10), height=400, 
-            yaxis=dict(fixedrange=True), xaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222', nticks=5),
-            title=dict(text=f"CUMULATIVE CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14))
+            yaxis=dict(fixedrange=True), xaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222'),
+            title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14))
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
-    st.error(f"TERMINAL OFFLINE: {str(e)}")
+    st.error(f"TERMINAL ERROR: {str(e)}")
