@@ -110,17 +110,22 @@ try:
                 height=450, 
                 margin=dict(t=20, b=40, l=20, r=20), # 增加底部邊距避免標籤切斷
                 xaxis=dict(
-                    showgrid=False, 
-                    fixedrange=True,
-                    showspikes=False,    # 關閉滑鼠引導線
-                    showline=False,      # 移除 X 軸底線
-                    zeroline=False,      # 移除 X=0 線
-                    ticks="",            # 移除 X 軸刻度小短線
-                    showticklabels=True,
-                    # 解決日期殘影：強制單一層級顯示格式
-                    tickformat="%H:%M" if selected_label == "1D" else "%m-%d",
-                    tickfont=dict(color=COLORS['muted'], size=10),
-                    rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
+                                showgrid=False, 
+                                fixedrange=True,
+                                # --- 找回引導線設定 ---
+                                showspikes=True,             # 1. 重新開啟虛線
+                                spikecolor="rgba(128,128,128,0.5)", # 2. 設定半透明灰色，避免太突兀
+                                spikethickness=1,
+                                spikedash="dot",             # 3. 使用點狀線
+                                spikemode="across",
+                                # --------------------
+                                showline=False,      
+                                zeroline=False,      
+                                ticks="",            
+                                showticklabels=True,
+                                tickformat="%H:%M" if selected_label == "1D" else "%m-%d",
+                                tickfont=dict(color=COLORS['muted'], size=10),
+                                rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
                 ),
                 yaxis=dict(
                     gridcolor='rgba(128,128,128,0.2)',
