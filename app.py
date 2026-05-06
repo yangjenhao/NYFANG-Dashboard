@@ -111,19 +111,17 @@ try:
                 margin=dict(t=20, b=40, l=20, r=20),
                 # --- 懸停標籤：改為紅底白字 ---
                 hoverlabel=dict(
-                    bgcolor="#FF3333",              # 紅色背景
+                    bgcolor="#FF6B6B",              # 淡紅色背景
                     font_size=13,
-                    font_color="#FFFFFF",           # 白色文字（紅色背景配白字較清晰）
+                    font_color="#FFFFFF",           # 白色文字
                     font_family="Josefin Sans",
-                    bordercolor="#FF3333",          # 紅色邊框
+                    bordercolor="#FF6B6B",          # 淡紅色邊框
                     namelength=-1
                 ),
-                # ---------------------------
                 xaxis=dict(
-                    showgrid=False, 
-                    fixedrange=True,
+                    # ... 其他設定保持不變 ...
                     showspikes=True,
-                    spikecolor="#FF3333",           # 虛線改為紅色
+                    spikecolor="rgba(255, 107, 107, 0.5)", # 虛線使用帶透明度的淡紅，更柔和
                     spikethickness=1,
                     spikedash="dash",               
                     spikemode="across",
