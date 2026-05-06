@@ -93,41 +93,38 @@ try:
 
     col1, col2 = st.columns([1.2, 1])
     
-    with col1: # 指數走勢圖 - 還原所有視覺細節
-        y_min, y_max = idx_series.min(), idx_series.max()
-        padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
-        
-        fig_idx = go.Figure(go.Scatter(
-            x=idx_series.index, y=idx_series.values, 
-            line=dict(color=COLORS['gold'], width=2, shape='spline'), # 還原平滑曲線
-            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
-            hoverinfo="x+y"
-        ))
-        
-        fig_idx.update_layout(
-            template="none", # 移除 dark 模板改用自動適應
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            height=450, margin=dict(t=20, b=20),
-            xaxis=dict(
-                showgrid=False, 
-                fixedrange=True,
-                showspikes=True, # 還原虛線引導
-                spikethickness=1,
-                spikedash="dot",
-                spikemode="across",
-                spikecolor="rgba(128,128,128,0.5)",
-                rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
-            ),
-            yaxis=dict(
-                gridcolor='rgba(128,128,128,0.2)', # 改用透明色，深淺模式皆美
-                range=[y_min - padding, y_max + padding],
-                fixedrange=True,
-                tickformat=".0f"
-            ),
-            dragmode=False,
-            hovermode="x unified"
-        )
-        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+    with col1: # 指數走勢圖
+            y_min, y_max = idx_series.min(), idx_series.max()
+            padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+            
+            fig_idx = go.Figure(go.Scatter(
+                x=idx_series.index, y=idx_series.values, 
+                line=dict(color=COLORS['gold'], width=2, shape='spline'),
+                fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+                hoverinfo="x+y"
+            ))
+            
+            # 修正後的設定：徹底移除底部的線條 (Spikes)
+            fig_idx.update_layout(
+                template="none", 
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                height=450, margin=dict(t=20, b=20),
+                xaxis=dict(
+                    showgrid=False, 
+                    fixedrange=True,
+                    showspikes=False, # 確保這裡設為 False
+                    rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
+                ),
+                yaxis=dict(
+                    gridcolor='rgba(128,128,128,0.2)',
+                    range=[y_min - padding, y_max + padding],
+                    fixedrange=True,
+                    tickformat=".0f"
+                ),
+                dragmode=False,
+                hovermode="x unified"
+            )
+            st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
         logo_imgs = [dict(
