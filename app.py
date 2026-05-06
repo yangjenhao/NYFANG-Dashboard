@@ -5,17 +5,18 @@ import plotly.graph_objects as go
 
 # --- 1. DESIGN TOKENS ---
 COLORS = {
-    "bg": "#1E1E1E",        # 從 #0A0A0A 調淡
-    "card_bg": "#262626",   # 從 #141414 調淡
+    "bg": "#0A0A0A", 
+    "card_bg": "#141414", 
     "fg": "#F2F0E4", 
     "gold": "#D4AF37", 
-    "muted": "#AAAAAA",     # 稍微調亮文字顏色
+    "muted": "#888888", 
     "up": "#00FF00", 
-    "down": "#FF3333"       # 稍微調整紅色的飽和度
+    "down": "#FF0000"
 }
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
+# 注入自定義 CSS
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -54,7 +55,9 @@ with st.sidebar:
             <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
             <hr style="border-color:{COLORS['gold']}22;">
             <p>STATUS: <span style="color:{COLORS['up']};">ONLINE</span></p>
-            <p style="font-size:0.75rem; line-height:1.4;">Dynamic Range Scaling: ENABLED.</p>
+            <p style="font-size:0.75rem; line-height:1.4;">
+                UI: Dynamic Scaling & Logo Masking Active.
+            </p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -70,6 +73,7 @@ try:
     start, end = idx_series.iloc[0], idx_series.iloc[-1]
     total_change = end - start
     
+    # 頂部數據指標
     c1, c2, c3 = st.columns(3)
     color = COLORS['up'] if total_change >= 0 else COLORS['down']
     with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VALUE</p><h2 style="color:{color}">{end:,.2f}</h2></div>', unsafe_allow_html=True)
@@ -84,15 +88,14 @@ try:
 
     col1, col2 = st.columns([1.2, 1])
     
-    with col1: # 指數走勢圖 - 修正 Y 軸曲線
+    with col1: # 左側：指數走勢圖（動態 Y 軸）
         y_min, y_max = idx_series.min(), idx_series.max()
         padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
         
         fig_idx = go.Figure(go.Scatter(
             x=idx_series.index, y=idx_series.values, 
             line=dict(color=COLORS['gold'], width=2, shape='spline'),
-            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
-            hoverinfo="x+y"
+            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)'
         ))
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
@@ -100,21 +103,34 @@ try:
             xaxis=dict(showgrid=False),
             yaxis=dict(
                 gridcolor='#222', 
-                range=[y_min - padding, y_max + padding], # 關鍵：動態縮放不從0開始
+                range=[y_min - padding, y_max + padding], # 動態縮放，不從 0 開始
                 fixedrange=True,
                 tickformat=".0f"
             )
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2: # 個股貢獻度
+    with col2: # 右側：個股貢獻度（含 Logo 優化）
         logo_imgs = []
-        for i, ticker in enumerate(row.index):
+        for ticker in row.index:
             domain = DOMAIN_MAP.get(ticker, "google.com")
+            
+            # 針對 MU 加入純白圓形襯底，避免黑色背景隱身或黑影
+            if ticker == "MU":
+                logo_imgs.append(dict(
+                    source="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/circle.svg", 
+                    xref="paper", yref="y", x=-0.12, y=ticker,
+                    sizex=0.055, sizey=0.55, 
+                    xanchor="right", yanchor="middle", 
+                    sizing="contain", opacity=1.0, layer="below"
+                ))
+
             logo_imgs.append(dict(
                 source=f"https://www.google.com/s2/favicons?sz=64&domain={domain}",
-                xref="paper", yref="y", x=-0.12, y=ticker, # 改用 ticker 作為 y 座標對齊
-                sizex=0.08, sizey=0.8, xanchor="right", yanchor="middle", sizing="contain"
+                xref="paper", yref="y", x=-0.12, y=ticker,
+                sizex=0.08, sizey=0.8, 
+                xanchor="right", yanchor="middle", 
+                sizing="contain", layer="above"
             ))
 
         fig_bar = go.Figure(go.Bar(
@@ -126,11 +142,15 @@ try:
         
         fig_bar.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            height=450, margin=dict(l=120, r=50, t=50, b=20),
+            height=450, margin=dict(l=120, r=60, t=50, b=20),
             title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14)),
             images=logo_imgs,
-            yaxis=dict(ticksuffix="      ", fixedrange=True),
-            xaxis=dict(showgrid=True, gridcolor='#222')
+            yaxis=dict(
+                tickfont=dict(size=11),
+                ticksuffix="      ", 
+                fixedrange=True
+            ),
+            xaxis=dict(showgrid=True, gridcolor='#222', zerolinecolor=COLORS['muted'])
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
