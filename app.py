@@ -17,11 +17,43 @@ st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
-    .stApp {{ font-family: 'Josefin Sans', sans-serif; }}
-    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; }}
-    .metric-card {{ background-color: rgba(128, 128, 128, 0.1); border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; border-radius: 4px; }}
-    section[data-testid="stSidebar"] {{ border-right: 1px solid rgba(128, 128, 128, 0.2); }}
-    .sidebar-content {{ padding: 10px; font-size: 0.85rem; opacity: 0.8; }}
+    
+    /* 1. 整體主背景：從純黑調淡至深炭灰 */
+    .stApp {{ 
+        background-color: #1E1E1E !important; 
+        font-family: 'Josefin Sans', sans-serif; 
+    }
+    
+    /* 2. 標題樣式 */
+    .main-title {{ 
+        font-family: 'Marcellus', serif !important; 
+        text-transform: uppercase; 
+        color: {COLORS['gold']} !important; 
+        text-align: center; 
+        font-size: 2.2rem; 
+        margin: 10px 0; 
+    }
+    
+    /* 3. 指標卡片：背景與邊框同步淡化 */
+    .metric-card {{ 
+        background-color: rgba(128, 128, 128, 0.05); 
+        border: 1px solid {COLORS['gold']}22; 
+        padding: 15px; 
+        text-align: center; 
+        border-radius: 4px; 
+    }
+    
+    /* 4. 側邊欄：背景與主色調一致並加上右邊框 */
+    section[data-testid="stSidebar"] {{ 
+        background-color: #252525 !important; 
+        border-right: 1px solid rgba(128, 128, 128, 0.1); 
+    }
+    
+    .sidebar-content {{ 
+        padding: 10px; 
+        font-size: 0.85rem; 
+        opacity: 0.8; 
+    }
     </style>
 """, unsafe_allow_html=True)
 
