@@ -84,29 +84,32 @@ try:
 
     col1, col2 = st.columns([1.2, 1])
     
-    with col1: # 指數走勢圖 - 啟動縮放功能
-        y_min, y_max = idx_series.min(), idx_series.max()
-        padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
-        
-        fig_idx = go.Figure(go.Scatter(
-            x=idx_series.index, y=idx_series.values, 
-            line=dict(color=COLORS['gold'], width=2, shape='spline'),
-            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
-            hoverinfo="x+y"
-        ))
-        fig_idx.update_layout(
-            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            height=450, margin=dict(t=20, b=20),
-            xaxis=dict(showgrid=False, fixedrange=False), # 允許 X 軸縮放
-            yaxis=dict(
-                gridcolor='#333', 
-                range=[y_min - padding, y_max + padding],
-                fixedrange=False, # 允許 Y 軸縮放
-                tickformat=".0f"
-            ),
-            dragmode='zoom' # 預設拖曳模式為縮放
-        )
-        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+    with col1: # 指數走勢圖 - 完全禁用縮放
+            y_min, y_max = idx_series.min(), idx_series.max()
+            padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+            
+            fig_idx = go.Figure(go.Scatter(
+                x=idx_series.index, y=idx_series.values, 
+                line=dict(color=COLORS['gold'], width=2, shape='spline'),
+                fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+                hoverinfo="x+y"
+            ))
+            fig_idx.update_layout(
+                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                height=450, margin=dict(t=20, b=20),
+                xaxis=dict(
+                    showgrid=False, 
+                    fixedrange=True  # 禁止 X 軸縮放
+                ),
+                yaxis=dict(
+                    gridcolor='#333', 
+                    range=[y_min - padding, y_max + padding],
+                    fixedrange=True, # 禁止 Y 軸縮放
+                    tickformat=".0f"
+                ),
+                dragmode=False      # 停用拖拽縮放模式
+            )
+            st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 個股貢獻度
         logo_imgs = []
