@@ -150,15 +150,15 @@ try:
             )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2: # 貢獻度圖表
-        # 1. 圖標位置稍微往右拉一點 (x=-0.08)，準備讓文字貼過來
+     with col2: # 貢獻度圖表
+        # 1. 調整圖標定位：配合更大的左邊距，x 座標需要同步微調
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.08,          
+            x=-0.12,          # 稍微往右調，讓它跟隨被推向右邊的文字
             y=i,
             sizex=0.06, sizey=0.6, 
-            xanchor="right",   # 讓圖標右側作為錨點
+            xanchor="right",   
             yanchor="middle", 
             sizing="contain", 
             layer="above"
@@ -180,16 +180,16 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 2. 縮小左邊距，讓整個 Y 軸標籤往左側邊界靠
-            margin=dict(l=80, r=60, t=50, b=20), 
+            # 2. 核心修改：大幅增加左邊距 (l) 將整個圖表往右推
+            # 同時縮小右邊距 (r) 避免圖表被壓縮太扁
+            margin=dict(l=180, r=30, t=50, b=20), 
             images=logo_imgs,
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                # 3. 關鍵：設定 automargin 為 False 並手動控制寬度，強迫文字靠左
-                automargin=False,
+                automargin=False, # 關閉自動邊距，讓文字聽從我們的定位
                 ticksuffix=" ", 
                 tickfont=dict(
                     size=12, 
