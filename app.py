@@ -13,7 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：背景調淡、修正 f-string 雙大括號語法[cite: 2]
+# CSS 修正：強制指標橫列與高度對齊
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -31,24 +31,30 @@ st.markdown(f"""
         font-size: 2.2rem; 
         margin: 10px 0; 
     }}
+
+    /* 強制指標在手機版也維持一橫列 */
+    .metric-row {{
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 20px;
+    }}
     
     .metric-card {{ 
+        flex: 1;
         background-color: rgba(128, 128, 128, 0.05); 
         border: 1px solid {COLORS['gold']}22; 
-        padding: 15px; 
+        padding: 12px 5px; 
         text-align: center; 
         border-radius: 4px; 
     }}
     
+    .metric-card h2 {{ font-size: 1.2rem !important; margin: 0; }}
+    .metric-card p {{ margin: 0; font-size: 0.7rem; }}
+
     section[data-testid="stSidebar"] {{ 
         background-color: #252525 !important; 
         border-right: 1px solid rgba(128, 128, 128, 0.1); 
-    }}
-    
-    .sidebar-content {{ 
-        padding: 10px; 
-        font-size: 0.85rem; 
-        opacity: 0.8; 
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -73,19 +79,7 @@ def fetch_data(p):
         df.index = df.index.tz_convert('America/New_York').tz_localize(None)
     return df.ffill().dropna()
 
-# --- 3. SIDEBAR ---
-with st.sidebar:
-    st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus; letter-spacing:2px;'>TERMINAL</h2>", unsafe_allow_html=True)
-    st.markdown(f"""
-        <div class='sidebar-content'>
-            <p><b>AUTHOR:</b> Jen-Hao Yang</p>
-            <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
-            <hr style="opacity: 0.2;">
-            <p>STATUS: <span style="color:{COLORS['up']};">ONLINE</span></p>
-        </div>
-    """, unsafe_allow_html=True)
-
-# --- 4. MAIN UI ---
+# --- 3. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
 
 period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "YTD": "ytd", "1Y": "1y", "5Y": "5y", "MAX": "max"}
@@ -98,21 +92,35 @@ try:
     idx_series = df[INDEX_SYMBOL]
     start, end = idx_series.iloc[0], idx_series.iloc[-1]
     total_change = end - start
-    
-    # 指標卡片
-    c1, c2, c3 = st.columns(3)
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
-    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VALUE</p><h2>{end:,.2f}</h2></div>', unsafe_allow_html=True)
-    with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">SHIFT</p><h2 style="color:{val_color}">{total_change:+.2f}</h2></div>', unsafe_allow_html=True)
-    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VAR %</p><h2 style="color:{val_color}">{(total_change/start*100):+.2f}%</h2></div>', unsafe_allow_html=True)
 
-    # 計算貢獻度[cite: 2]
+    # 指標卡片：改用 HTML Flex 結構確保手機版不換行
+    st.markdown(f"""
+        <div class="metric-row">
+            <div class="metric-card">
+                <p style="color:{COLORS["gold"]};">VALUE</p>
+                <h2>{end:,.2f}</h2>
+            </div>
+            <div class="metric-card">
+                <p style="color:{COLORS["gold"]};">SHIFT</p>
+                <h2 style="color:{val_color}">{total_change:+.2f}</h2>
+            </div>
+            <div class="metric-card">
+                <p style="color:{COLORS["gold"]};">VAR %</p>
+                <h2 style="color:{val_color}">{(total_change/start*100):+.2f}%</h2>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 貢獻度計算
     returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
     raw_impact = returns * 0.1
     impact_sum = raw_impact.sum()
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
     col1, col2 = st.columns([1.2, 1])
+    # 統一高度設定
+    CHART_HEIGHT = 480 
     
     with col1: # 指數走勢圖
         y_min, y_max = idx_series.min(), idx_series.max()
@@ -124,16 +132,14 @@ try:
         ))
         fig_idx.update_layout(
             template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            height=400, margin=dict(t=50, b=40, l=50, r=30),
-            hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
+            height=CHART_HEIGHT, margin=dict(t=50, b=40, l=50, r=30),
             xaxis=dict(showgrid=False, tickfont=dict(color=COLORS['muted'], size=10)),
-            yaxis=dict(gridcolor='rgba(128,128,128,0.05)', range=[y_min-padding, y_max+padding], tickfont=dict(color=COLORS['muted'], size=10)),
+            yaxis=dict(gridcolor='rgba(128,128,128,0.05)', range=[y_min-padding, y_max+padding]),
             hovermode="x unified"
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2: # 貢獻度圖表 (修正手機重疊與大小問題)[cite: 2]
-        # 1. 建立 Logo 與標籤 (使用 paper 座標精確鎖定距離)
+    with col2: # 貢獻度圖表
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", x=-0.28, y=i,
@@ -155,7 +161,7 @@ try:
         
         fig_bar.update_layout(
             template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            height=500, margin=dict(l=120, r=40, t=50, b=20), 
+            height=CHART_HEIGHT, margin=dict(l=120, r=40, t=50, b=20), 
             images=logo_imgs, annotations=ticker_labels,
             yaxis=dict(showgrid=False, showticklabels=False),
             xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)'),
