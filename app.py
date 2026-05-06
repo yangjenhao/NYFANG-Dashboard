@@ -108,18 +108,21 @@ try:
             fig_idx.update_layout(
                         template="none", 
                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                        height=450, margin=dict(t=20, b=20),
+                        height=450, 
+                        # 1. 增加底部邊距 (b=40)，給日期留空間，或避免日期擠在一起
+                        margin=dict(t=20, b=40, l=20, r=20), 
                         xaxis=dict(
                             showgrid=False, 
                             fixedrange=True,
                             showspikes=False,
-                            # --- 強制移除所有軸線標記 ---
-                            showline=False,      # 移除軸線
-                            zeroline=False,      # 移除零線
-                            mirror=False,        # 確保不會在對向產生鏡像線
-                            ticks="",            # 關鍵：移除刻度小短線
-                            showticklabels=True, # 保留文字
-                            # -------------------------
+                            showline=False,
+                            zeroline=False,
+                            # 2. 關鍵：強制不使用多層級標籤 (防止出現被切斷的日期)
+                            showticklabels=True,
+                            tickmode="auto",
+                            nticks=8, # 限制標籤數量，避免擠壓
+                            # 3. 統一格式：只顯示時間或日期，不讓系統自己分層
+                            tickformat="%H:%M" if selected_label == "1D" else "%m-%d",
                             tickfont=dict(color=COLORS['muted'], size=10),
                             rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
                         ),
@@ -128,9 +131,7 @@ try:
                             range=[y_min - padding, y_max + padding],
                             fixedrange=True,
                             tickformat=".0f",
-                            showline=False,
-                            zeroline=False,
-                            ticks=""
+                            showline=False
                         ),
                         dragmode=False,
                         hovermode="x unified"
