@@ -45,11 +45,10 @@ st.markdown(f"""
         border-right: 1px solid rgba(128, 128, 128, 0.1); 
     }}
 
-    /* 優化手機端欄位間距 */
-    @media (max-width: 768px) {{
-        [data-testid="column"] {{
-            margin-bottom: 20px;
-        }}
+    /* 限制電腦版寬度，避免圖表在寬螢幕過於扁平 */
+    .reportview-container .main .block-container {{
+        max-width: 1000px;
+        padding-top: 2rem;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -102,6 +101,7 @@ try:
     start, end = idx_series.iloc[0], idx_series.iloc[-1]
     total_change = end - start
     
+    # 指標卡片保留橫向
     c1, c2, c3 = st.columns(3)
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VALUE</p><h2>{end:,.2f}</h2></div>', unsafe_allow_html=True)
@@ -113,88 +113,85 @@ try:
     impact_sum = raw_impact.sum()
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
-    # 建立兩欄佈局
-    col1, col2 = st.columns([1.2, 1])
+    # --- 圖一：趨勢圖 (置中顯示) ---
+    y_min, y_max = idx_series.min(), idx_series.max()
+    padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
     
-    with col1:
-        y_min, y_max = idx_series.min(), idx_series.max()
-        padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
-        
-        fig_idx = go.Figure(go.Scatter(
-            x=idx_series.index, y=idx_series.values, 
-            line=dict(color=COLORS['gold'], width=2, shape='spline'),
-            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
-            hoverinfo="x+y"
-        ))
-        
-        fig_idx.update_layout(
-            template="none", 
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            height=400, # 微調高度適合手機垂直堆疊
-            margin=dict(t=20, b=40, l=10, r=10),
-            hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
-            xaxis=dict(
-                showgrid=False, fixedrange=True, showspikes=True,
-                spikecolor="#FF3333", spikethickness=1,
-                tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
-                tickfont=dict(color=COLORS['muted'], size=10),
-                rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
-            ),
-            yaxis=dict(
-                gridcolor='rgba(128,128,128,0.1)',
-                range=[y_min - padding, y_max + padding],
-                fixedrange=True, tickformat=".0f",
-                tickfont=dict(color=COLORS['muted'], size=10)
-            ),
-            hovermode="x unified"
-        )
-        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+    fig_idx = go.Figure(go.Scatter(
+        x=idx_series.index, y=idx_series.values, 
+        line=dict(color=COLORS['gold'], width=2, shape='spline'),
+        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+        hoverinfo="x+y"
+    ))
+    
+    fig_idx.update_layout(
+        template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+        height=450, 
+        margin=dict(t=40, b=40, l=10, r=10),
+        hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
+        xaxis=dict(
+            showgrid=False, fixedrange=True, showspikes=True,
+            spikecolor="#FF3333", spikethickness=1,
+            tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
+            tickfont=dict(color=COLORS['muted'], size=10),
+            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
+        ),
+        yaxis=dict(
+            gridcolor='rgba(128,128,128,0.1)',
+            range=[y_min - padding, y_max + padding],
+            fixedrange=True, tickformat=".0f",
+            tickfont=dict(color=COLORS['muted'], size=10)
+        ),
+        hovermode="x unified"
+    )
+    st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2:
-        # 優化手機端：縮小 Logo 的負偏移量，並減少左邊距
-        logo_imgs = [dict(
-            source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-            xref="paper", yref="y", 
-            x=-0.18,          # 從 -0.30 縮減，確保手機端不溢出
-            y=i,
-            sizex=0.06, sizey=0.6, 
-            xanchor="left", yanchor="middle", sizing="contain", layer="above"
-        ) for i, t in enumerate(row.index)]
+    st.markdown('<hr style="opacity: 0.1; margin: 20px 0;">', unsafe_allow_html=True)
 
-        ticker_labels = [dict(
-            xref="paper", yref="y",
-            x=-0.11,          # 從 -0.22 縮減，緊貼 Logo
-            y=i,
-            text=f"<b>{t}</b>",
-            showarrow=False, xanchor="left", yanchor="middle",
-            font=dict(size=10, color=COLORS['muted'], family="Josefin Sans")
-        ) for i, t in enumerate(row.index)]
+    # --- 圖二：貢獻度圖 (放在圖一下方) ---
+    # 優化標籤間距：因改為全寬，x 偏移量需更精準
+    logo_imgs = [dict(
+        source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
+        xref="paper", yref="y", 
+        x=-0.08,          
+        y=i,
+        sizex=0.03, sizey=0.5, 
+        xanchor="left", yanchor="middle", sizing="contain", layer="above"
+    ) for i, t in enumerate(row.index)]
 
-        fig_bar = go.Figure(go.Bar(
-            y=row.index, x=row.values, orientation='h',
-            marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-            text=row.values.round(2), textposition='outside',
-            textfont=dict(color=COLORS['muted'], size=10),
-            cliponaxis=False 
-        ))
-        
-        fig_bar.update_layout(
-            template="none",
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            height=450, 
-            margin=dict(l=85, r=40, t=50, b=20), # 左邊距從 180 顯著下修
-            images=logo_imgs,
-            annotations=ticker_labels,
-            yaxis=dict(showticklabels=False, fixedrange=True),
-            xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
-            title=dict(
-                text=f"CONTRIBUTION ({selected_label})", 
-                font=dict(color=COLORS['gold'], size=13, family="Josefin Sans"),
-                x=0.5, xanchor="center"
-            ),
-            bargap=0.35 
-        )
-        st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+    ticker_labels = [dict(
+        xref="paper", yref="y",
+        x=-0.045,          
+        y=i,
+        text=f"<b>{t}</b>",
+        showarrow=False, xanchor="left", yanchor="middle",
+        font=dict(size=11, color=COLORS['muted'], family="Josefin Sans")
+    ) for i, t in enumerate(row.index)]
+
+    fig_bar = go.Figure(go.Bar(
+        y=row.index, x=row.values, orientation='h',
+        marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+        text=row.values.round(2), textposition='outside',
+        textfont=dict(color=COLORS['muted'], size=10),
+        cliponaxis=False 
+    ))
+    
+    fig_bar.update_layout(
+        template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        height=550, # 增加高度讓 10 個成分股更清晰
+        margin=dict(l=80, r=40, t=50, b=40), 
+        images=logo_imgs,
+        annotations=ticker_labels,
+        yaxis=dict(showticklabels=False, fixedrange=True),
+        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
+        title=dict(
+            text=f"CONTRIBUTION ({selected_label})", 
+            font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
+            x=0.5, xanchor="center"
+        ),
+        bargap=0.3 
+    )
+    st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
     st.error(f"系統錯誤: {e}")
