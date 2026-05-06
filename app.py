@@ -13,7 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：限制最大寬度以維持美感，並優化間距
+# CSS 修正：包含強制水平排列的 Flexbox 樣式
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -31,24 +31,36 @@ st.markdown(f"""
         font-size: 2.2rem; 
         margin: 10px 0; 
     }}
+
+    /* 強制水平並排的容器 */
+    .flex-container {{
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 20px;
+    }}
     
     .metric-card {{ 
+        flex: 1;
         background-color: rgba(128, 128, 128, 0.05); 
         border: 1px solid {COLORS['gold']}22; 
-        padding: 15px; 
+        padding: 12px 5px; 
         text-align: center; 
         border-radius: 4px; 
     }}
+
+    .metric-label {{ color: {COLORS["gold"]}; font-size: 0.75rem; margin-bottom: 4px; }}
+    .metric-value {{ font-size: 1.1rem; font-weight: 600; margin: 0; }}
     
     section[data-testid="stSidebar"] {{ 
         background-color: #252525 !important; 
         border-right: 1px solid rgba(128, 128, 128, 0.1); 
     }}
 
-    /* 限制電腦版寬度，防止圖表過扁 */
     .block-container {{
-        max-width: 1100px !important;
-        padding-top: 2rem;
+        max-width: 1000px !important;
+        padding-top: 1.5rem;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -100,15 +112,26 @@ try:
     idx_series = df[INDEX_SYMBOL]
     start, end = idx_series.iloc[0], idx_series.iloc[-1]
     total_change = end - start
-    
-    # 指標卡片
-    c1, c2, c3 = st.columns(3)
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
-    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VALUE</p><h2>{end:,.2f}</h2></div>', unsafe_allow_html=True)
-    with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">SHIFT</p><h2 style="color:{val_color}">{total_change:+.2f}</h2></div>', unsafe_allow_html=True)
-    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VAR %</p><h2 style="color:{val_color}">{(total_change/start*100):+.2f}%</h2></div>', unsafe_allow_html=True)
 
-    # 數據計算
+    # 使用自定義 HTML 替代 st.columns(3)，確保手機不換行
+    st.markdown(f"""
+        <div class="flex-container">
+            <div class="metric-card">
+                <p class="metric-label">VALUE</p>
+                <p class="metric-value">{end:,.2f}</p>
+            </div>
+            <div class="metric-card">
+                <p class="metric-label">SHIFT</p>
+                <p class="metric-value" style="color:{val_color}">{total_change:+.2f}</p>
+            </div>
+            <div class="metric-card">
+                <p class="metric-label">VAR %</p>
+                <p class="metric-value" style="color:{val_color}">{(total_change/start*100):+.2f}%</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
     returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
     raw_impact = returns * 0.1
     impact_sum = raw_impact.sum()
@@ -127,7 +150,7 @@ try:
     
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=400, margin=dict(t=30, b=40, l=40, r=40),
+        height=400, margin=dict(t=20, b=40, l=10, r=10),
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
             showgrid=False, fixedrange=True, showspikes=True,
@@ -144,26 +167,17 @@ try:
     )
     st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    st.write("") # 間隔
-
-    # --- 圖二：貢獻度圖 (放在下面，修正 Logo 消失問題) ---
-    # 修正關鍵：縮小 x 的負值（靠近 0），並確保 margin-l 足夠大
+    # --- 圖二：貢獻度圖 ---
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-        xref="paper", yref="y", 
-        x=-0.12,          # 修正：從 -0.30 調小至 -0.12，防止超出左邊界
-        y=i,
-        sizex=0.035, sizey=0.45, 
-        xanchor="left", yanchor="middle", sizing="contain", layer="above"
+        xref="paper", yref="y", x=-0.08, y=i,
+        sizex=0.035, sizey=0.45, xanchor="left", yanchor="middle", sizing="contain", layer="above"
     ) for i, t in enumerate(row.index)]
 
     ticker_labels = [dict(
-        xref="paper", yref="y",
-        x=-0.08,          # 修正：同步調小偏移量
-        y=i,
-        text=f"<b>{t}</b>",
-        showarrow=False, xanchor="left", yanchor="middle",
-        font=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
+        xref="paper", yref="y", x=-0.04, y=i,
+        text=f"<b>{t}</b>", showarrow=False, xanchor="left", yanchor="middle",
+        font=dict(size=11, color=COLORS['muted'], family="Josefin Sans")
     ) for i, t in enumerate(row.index)]
 
     fig_bar = go.Figure(go.Bar(
@@ -176,10 +190,8 @@ try:
     
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        height=550, 
-        margin=dict(l=120, r=40, t=50, b=40), # 修正：設定足夠的左邊距
-        images=logo_imgs,
-        annotations=ticker_labels,
+        height=550, margin=dict(l=75, r=40, t=50, b=40),
+        images=logo_imgs, annotations=ticker_labels,
         yaxis=dict(showticklabels=False, fixedrange=True),
         xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
         title=dict(
