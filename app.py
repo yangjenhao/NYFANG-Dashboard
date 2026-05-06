@@ -16,18 +16,16 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：讓背景隨系統切換，卡片使用 RGBA 透明度
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
-    .stApp {{ font-family: 'Josefin Sans', sans-serif; }}
-    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; }}
-    .metric-card {{ background-color: rgba(128, 128, 128, 0.1); border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; border-radius: 4px; }}
-    section[data-testid="stSidebar"] {{ border-right: 1px solid rgba(128, 128, 128, 0.2); }}
-    .sidebar-content {{ padding: 10px; font-size: 0.85rem; opacity: 0.8; }}
+    .stApp {{ background-color: {COLORS['bg']}; color: {COLORS['fg']}; font-family: 'Josefin Sans', sans-serif; }}
+    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['fg']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; letter-spacing: 3px; }}
+    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['muted']}33; padding: 15px; text-align: center; border-radius: 8px; }}
+    section[data-testid="stSidebar"] {{ background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['muted']}44; }}
+    .sidebar-content {{ padding: 15px; font-size: 0.85rem; color: {COLORS['muted']}; }}
     </style>
 """, unsafe_allow_html=True)
-
 # --- 2. DATA LOGIC (加入安全檢查防止 KeyError) ---
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
