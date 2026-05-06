@@ -183,18 +183,29 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 1. 核心修正：改用 xref="x domain"，這會讓 x=0 精確定位在 Y 軸線上
-        # 使用 x=-0.02 並配合 xanchor="right"，讓 Logo 永遠吸附在文字左側
+        # 1. 建立 Logo：固定在左側邊距 (xref="paper")
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-            xref="x domain", yref="y", 
-            x=-0.02,          # 微調此值即可控制 Logo 與文字的距離
+            xref="paper", yref="y", 
+            x=-0.30,          # Logo 的起點（位於邊距內）
             y=i,
-            sizex=0.06, sizey=0.6, 
-            xanchor="right",  
+            sizex=0.05, sizey=0.5, 
+            xanchor="left",   
             yanchor="middle", 
             sizing="contain", 
             layer="above"
+        ) for i, t in enumerate(row.index)]
+
+        # 2. 建立自定義 Ticker 文字：鎖定在 Logo 右側
+        ticker_labels = [dict(
+            xref="paper", yref="y",
+            x=-0.22,          # 文字起點緊跟在 Logo 之後，保持固定間距
+            y=i,
+            text=f"<b>{t}</b>", # 加粗標籤，視覺更清晰
+            showarrow=False,
+            xanchor="left",   # 關鍵：強制文字向左對齊
+            yanchor="middle",
+            font=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
         ) for i, t in enumerate(row.index)]
 
         fig_bar = go.Figure(go.Bar(
@@ -213,22 +224,16 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 2. 邊距建議：l=80-100 即可，因為文字會自動向左伸展
-            margin=dict(l=100, r=50, t=50, b=20), 
+            # 3. 增加左邊距至 180，為 Logo 和文字騰出空間
+            margin=dict(l=180, r=40, t=50, b=20), 
             images=logo_imgs,
+            annotations=ticker_labels, # 使用手動定位的標籤
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                # 3. 關鍵：開啟自動邊距，讓系統自動處理不同長度的 Ticker
-                automargin=True, 
-                ticksuffix=" ", # 在文字後加一個空格，稍微推開條形圖
-                tickfont=dict(
-                    size=12, 
-                    color=COLORS['muted'], 
-                    family="Josefin Sans"
-                )
+                showticklabels=False, # 關鍵：關閉會造成重疊的預設標籤
             ),
             xaxis=dict(
                 showgrid=True, 
@@ -241,7 +246,7 @@ try:
                 font=dict(color=COLORS['gold'], size=14, family="Josefin Sans"),
                 x=0.5, xanchor="center"
             ),
-            bargap=0.35 
+            bargap=0.4 
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 except Exception as e:
