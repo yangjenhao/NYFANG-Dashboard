@@ -120,34 +120,37 @@ try:
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2: # 個股貢獻度 - 修正 Shape 屬性版本
+    with col2: # 個股貢獻度 - 修正 MU 墊底版本
             logo_imgs = []
             shapes = [] 
             
-            for ticker in row.index:
+            # 取得排序後的 index 列表
+            tickers = list(row.index)
+            
+            for i, ticker in enumerate(tickers):
                 domain = DOMAIN_MAP.get(ticker, "google.com")
                 
-                # 針對 MU 繪製白色圓形墊底
+                # 中心點設定：x=-0.12 是 Logo 的位置
+                # 墊底圓形：僅針對 Logo 是深色或需要突出的 MU
                 if ticker == "MU":
-                    # 設定圓形的中心與上下偏移量
-                    # 在 yref="y" 下，y0/y1 使用 ticker 名稱作為座標中心
                     shapes.append(dict(
                         type="circle",
                         xref="paper", yref="y",
-                        x0=-0.15, x1=-0.09, # 水平位置對齊 Logo (x=-0.12 為中心)
-                        y0=ticker, y1=ticker, # 初始中心點
+                        x0=-0.155, x1=-0.085, # 水平範圍包圍 Logo
+                        y0=i - 0.3, y1=i + 0.3, # 垂直範圍對應 Y 軸索引高度
                         fillcolor="white",
-                        line_color="white",
+                        line_width=0,
                         layer="below"
                     ))
     
                 # 主要 Logo
                 logo_imgs.append(dict(
-                    source=f"https://www.google.com/s2/favicons?sz=64&domain={domain}",
+                    source=f"https://www.google.com/s2/favicons?sz=128&domain={domain}", # 提升解析度到 128
                     xref="paper", yref="y", 
-                    x=-0.12, y=ticker,
-                    sizex=0.08, sizey=0.8, 
-                    xanchor="right", yanchor="middle", 
+                    x=-0.12, y=i, # 使用索引值 i 定位高度
+                    sizex=0.08, sizey=0.7, 
+                    xanchor="center", # 改為 center 更容易對齊墊底圓形
+                    yanchor="middle", 
                     sizing="contain", 
                     layer="above"
                 ))
@@ -169,9 +172,10 @@ try:
                     tickfont=dict(size=11, color=COLORS['fg']),
                     ticksuffix="      ", 
                     fixedrange=True,
-                    automargin=True 
+                    automargin=False # 手動 margin 較穩定
                 ),
-                xaxis=dict(showgrid=True, gridcolor='#333', zerolinecolor=COLORS['muted'])
+                xaxis=dict(showgrid=True, gridcolor='#333', zerolinecolor=COLORS['muted']),
+                title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14))
             )
             st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
