@@ -27,7 +27,9 @@ INDEX_SYMBOL = "^NYFANG"
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     is_intraday = (p == "1d")
-    fetch_p, interval = ("2d", "1m") if is_intraday else (("10d", "1d") if p == "5d" else (p, "1d"))
+    # 根據 Timeline 決定抓取長度與頻率
+    fetch_p, interval = ("2d", "1m") if is_intraday else (p, "1d")
+    
     data = yf.download(all_symbols, period=fetch_p, interval=interval, progress=False, auto_adjust=False)['Close']
     
     if is_intraday:
@@ -51,6 +53,7 @@ with st.sidebar:
     period_val = selected_period[1]
     
     try:
+        # 用一個月數據來抓最新交易日
         latest_market_date = fetch_data("1mo").index[-1].date()
     except:
         latest_market_date = datetime.now().date()
@@ -60,42 +63,59 @@ with st.sidebar:
 try:
     df = fetch_data(period_val)
     idx_series = df[INDEX_SYMBOL]
-    target_dt = pd.to_datetime(target_date).date()
-    day_data = idx_series[idx_series.index.date == target_dt]
     
-    if not day_data.empty:
-        plot_time = day_data.index[-1]
-        loc_start = idx_series.index.get_loc(day_data.index[0])
-        ref_val = idx_series.iloc[loc_start-1] if loc_start > 0 else day_data.iloc[0]
+    # 根據 TIMELINE 起點計算累積歸因
+    # 起點：df 的第一筆數據；終點：選定日期的最後一筆數據
+    target_dt = pd.to_datetime(target_date).date()
+    available_df = df[df.index.date <= target_dt]
+    
+    if not available_df.empty:
+        # 定義區間起點與終點
+        start_vals = available_df.iloc[0] # Timeline 區間的最早價格
+        end_vals = available_df.iloc[-1]   # 選定日期的最後價格
+        plot_time = available_df.index[-1]
         
-        current_idx_val = idx_series.loc[plot_time]
-        total_pts_change = current_idx_val - ref_val
+        # 1. 指數總變化量
+        total_pts_change = end_vals[INDEX_SYMBOL] - start_vals[INDEX_SYMBOL]
+        variance = (total_pts_change / start_vals[INDEX_SYMBOL]) * 100
         shift_col = COLORS['up'] if total_pts_change >= 0 else COLORS['down']
 
-        # 累積歸因計算
-        stock_starts = df[OFFICIAL_TICKERS].iloc[loc_start-1] if loc_start > 0 else df[OFFICIAL_TICKERS].iloc[0]
-        stock_returns = (df[OFFICIAL_TICKERS].loc[plot_time] / stock_starts) - 1
+        # 2. 累積歸因計算 (從區間起點至今)
+        # 計算每支個股在該期間的報酬率
+        stock_returns = (end_vals[OFFICIAL_TICKERS] / start_vals[OFFICIAL_TICKERS]) - 1
+        
+        # 貢獻分配 (各股報酬 * 10% 權重)
         raw_impacts = stock_returns * 0.1
-        total_impact = raw_impacts.sum()
-        cum_contrib = (raw_impacts * (total_pts_change / total_impact)) if abs(total_impact) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)
+        total_impact_sum = raw_impacts.sum()
+        
+        # 歸一化分配到指數漲跌點數
+        if abs(total_impact_sum) > 1e-9:
+            cum_contrib = raw_impacts * (total_pts_change / total_impact_sum)
+        else:
+            cum_contrib = pd.Series(0, index=OFFICIAL_TICKERS)
 
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
         
+        # 上方指標卡
         c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">INDEX VALUE</p><h3 style="color:{shift_col};">{current_idx_val:,.2f}</h3></div>', unsafe_allow_html=True)
-        with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">POINT SHIFT</p><h3 style="color:{shift_col};">{total_pts_change:+.2f}</h3></div>', unsafe_allow_html=True)
-        with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VARIANCE</p><h3 style="color:{shift_col};">{(total_pts_change/ref_val)*100:+.2f}%</h3></div>', unsafe_allow_html=True)
+        with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">CURRENT VALUE</p><h3 style="color:{shift_col};">{end_vals[INDEX_SYMBOL]:,.2f}</h3></div>', unsafe_allow_html=True)
+        with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">{selected_period[0]} SHIFT</p><h3 style="color:{shift_col};">{total_pts_change:+.2f}</h3></div>', unsafe_allow_html=True)
+        with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">{selected_period[0]} VAR %</p><h3 style="color:{shift_col};">{variance:+.2f}%</h3></div>', unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
+        # 左圖：趨勢走勢圖
         with col1:
-            show_df = day_data if period_val == '1d' else idx_series
-            fig_idx = go.Figure(go.Scatter(x=show_df.index, y=show_df.values, line=dict(color=COLORS['gold'], width=2), hoverinfo="x+y"))
+            fig_idx = go.Figure(go.Scatter(
+                x=available_df.index, y=available_df[INDEX_SYMBOL], 
+                line=dict(color=COLORS['gold'], width=2),
+                hoverinfo="x+y"
+            ))
             
-            # 【關鍵：禁用縮放 fixedrange=True】
             xaxis_cfg = dict(
                 showgrid=False, color=COLORS['muted'], fixedrange=True,
                 showspikes=True, spikemode='across', spikesnap='cursor', spikedash='dash', spikethickness=1, spikecolor=COLORS['muted']
             )
+            # TODAY 模式顯示小時，其餘顯示日期
             if period_val == '1d':
                 xaxis_cfg['tickformat'] = "%H:%M"
                 xaxis_cfg['range'] = [plot_time.replace(hour=9, minute=30), plot_time.replace(hour=16, minute=0)]
@@ -108,15 +128,19 @@ try:
             )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
+        # 右圖：累積歸因圖
         with col2:
             row = cum_contrib.sort_values(ascending=False)
-            fig_bar = go.Figure(go.Bar(x=row.index, y=row.values, marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values], text=row.values.round(2), textposition='auto'))
-            time_label = plot_time.strftime('%H:%M') if period_val == '1d' else plot_time.strftime('%Y-%m-%d')
+            fig_bar = go.Figure(go.Bar(
+                x=row.index, y=row.values, 
+                marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values], 
+                text=row.values.round(2), textposition='auto'
+            ))
             fig_bar.update_layout(
                 template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
                 margin=dict(l=0, r=0, t=30, b=0), height=400, 
                 yaxis=dict(fixedrange=True), xaxis=dict(fixedrange=True),
-                title=dict(text=f"CONTRIBUTION ({time_label})", font=dict(color=COLORS['gold'], size=14))
+                title=dict(text=f"PERIOD CUMULATIVE CONTRIBUTION", font=dict(color=COLORS['gold'], size=14))
             )
             st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
     else:
