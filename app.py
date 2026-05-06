@@ -150,7 +150,7 @@ try:
             )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-     with col2: # 貢獻度圖表
+    with col2: # 貢獻度圖表
         # 1. 調整圖標定位：配合更大的左邊距，x 座標需要同步微調
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
