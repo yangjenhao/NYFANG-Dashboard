@@ -145,7 +145,7 @@ try:
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
         height=380, 
-        margin=dict(t=20, b=40, l=50, r=10), # 保持 l=50 確保 Y 軸數字完整
+        margin=dict(t=20, b=40, l=50, r=10), #
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
             showgrid=False, fixedrange=True, showspikes=True,
@@ -164,9 +164,14 @@ try:
 
     st.write("") 
 
-    # --- 圖二：貢獻度圖 ---
+    # --- 圖二：貢獻度圖 (動態 Range 修正) ---
     
-    # 僅保留 Logo 的設定
+    # 1. 動態計算 X 軸範圍
+    val_min, val_max = row.min(), row.max()
+    val_range = val_max - val_min if val_max != val_min else 10
+    dynamic_x_min = val_min - (val_range * 0.3) # 左側留給 Logo
+    dynamic_x_max = val_max + (val_range * 0.2) # 右側留給數值標籤
+    
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
@@ -188,13 +193,13 @@ try:
         height=550, 
         margin=dict(l=100, r=80, t=50, b=40), 
         images=logo_imgs,
-        annotations=[],                       # 不顯示文字名稱
+        annotations=[],                       
         yaxis=dict(showticklabels=False, fixedrange=True), 
         xaxis=dict(
             showgrid=True, 
             gridcolor='rgba(128,128,128,0.05)', 
             fixedrange=True,
-            range=[-60, 80]                    # 修正：手動指定更寬的刻度範圍
+            range=[dynamic_x_min, dynamic_x_max] # 修正：這裡改為動態變量
         ),
         title=dict(
             text=f"CONTRIBUTION ({selected_label})", 
