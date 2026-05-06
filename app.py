@@ -109,23 +109,23 @@ try:
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
                 height=450, 
                 margin=dict(t=20, b=40, l=20, r=20),
-                # --- 精化懸停標籤 (讓方框更高級) ---
+                # --- 懸停標籤：改為紅底白字 ---
                 hoverlabel=dict(
-                    bgcolor="rgba(30, 30, 30, 0.9)", # 深色半透明底，質感更佳
+                    bgcolor="#FF3333",              # 紅色背景
                     font_size=13,
-                    font_color=COLORS['gold'],       # 金色文字
-                    font_family="Josefin Sans",      # 統一字體
-                    bordercolor=COLORS['gold'],      # 金色邊框
-                    namelength=-1                    # 顯示完整名稱
+                    font_color="#FFFFFF",           # 白色文字（紅色背景配白字較清晰）
+                    font_family="Josefin Sans",
+                    bordercolor="#FF3333",          # 紅色邊框
+                    namelength=-1
                 ),
                 # ---------------------------
                 xaxis=dict(
                     showgrid=False, 
                     fixedrange=True,
                     showspikes=True,
-                    spikecolor=COLORS['gold'],       # 虛線改用金色，呼應主題
+                    spikecolor="#FF3333",           # 虛線改為紅色
                     spikethickness=1,
-                    spikedash="dash",                # 點狀線改為短虛線，更專業
+                    spikedash="dash",               
                     spikemode="across",
                     showline=False,      
                     zeroline=False,      
@@ -136,7 +136,7 @@ try:
                     rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
                 ),
                 yaxis=dict(
-                    gridcolor='rgba(128,128,128,0.1)', # 網格線調得更淡
+                    gridcolor='rgba(128,128,128,0.1)',
                     range=[y_min - padding, y_max + padding],
                     fixedrange=True,
                     tickformat=".0f",
@@ -146,7 +146,7 @@ try:
                     tickfont=dict(color=COLORS['muted'], size=10)
                 ),
                 dragmode=False,
-                hovermode="x unified" # 統一 X 軸觸發，視覺感最強
+                hovermode="x unified"
             )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
     with col2: # 貢獻度圖表
