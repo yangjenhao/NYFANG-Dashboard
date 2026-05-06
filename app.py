@@ -151,14 +151,13 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 設定圖標：x 座標與 xanchor 是對齊文字的關鍵
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.15,          # 讓圖標靠近 Y 軸邊界
+            x=-0.15,          
             y=i,
             sizex=0.07, sizey=0.7, 
-            xanchor="right",  # 改為右對齊，讓圖標往文字方向靠攏
+            xanchor="right",  
             yanchor="middle", 
             sizing="contain", 
             layer="above"
@@ -172,7 +171,7 @@ try:
             text=row.values.round(2), 
             textposition='outside',
             textfont=dict(color=COLORS['muted'], size=10),
-            cliponaxis=False # 確保長數字不會被切掉
+            cliponaxis=False 
         ))
         
         fig_bar.update_layout(
@@ -180,7 +179,6 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 調整左邊距 (l)，預留空間給圖標與文字對齊
             margin=dict(l=120, r=60, t=50, b=20),
             images=logo_imgs,
             yaxis=dict(
@@ -188,15 +186,18 @@ try:
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                # 調整文字與軸線的距離，這裡只留一個微小空格
-                tickformat="", 
                 ticksuffix=" ", 
-                tickfont=dict(size=12, color=COLORS['muted'], font_family="Josefin Sans")
+                # 修正處：將 font_family 改為 family，並移除多餘的嵌套
+                tickfont=dict(
+                    size=12, 
+                    color=COLORS['muted'], 
+                    family="Josefin Sans" 
+                )
             ),
             xaxis=dict(
                 showgrid=True, 
                 gridcolor='rgba(128,128,128,0.1)',
-                zerolinecolor='rgba(128,128,128,0.3)', # 讓 0 軸線明顯一點
+                zerolinecolor='rgba(128,128,128,0.3)',
                 fixedrange=True
             ),
             title=dict(
@@ -204,7 +205,7 @@ try:
                 font=dict(color=COLORS['gold'], size=14, family="Josefin Sans"),
                 x=0.5, xanchor="center"
             ),
-            bargap=0.3 # 調整長條圖間距，讓圖標有更多垂直空間
+            bargap=0.3 
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
