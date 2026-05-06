@@ -183,14 +183,15 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 1. 安全對齊：x=-0.05 確保圖標始終在畫布內，且緊貼文字左側
+        # 1. 核心修正：改用 xref="x domain"，這會讓 x=0 精確定位在 Y 軸線上
+        # 使用 x=-0.02 並配合 xanchor="right"，讓 Logo 永遠吸附在文字左側
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-            xref="paper", yref="y", 
-            x=-0.05,          # 修正：縮小負值，確保 Logo 留在畫面中
+            xref="x domain", yref="y", 
+            x=-0.02,          # 微調此值即可控制 Logo 與文字的距離
             y=i,
             sizex=0.06, sizey=0.6, 
-            xanchor="right",  # 以圖標右側對齊文字
+            xanchor="right",  
             yanchor="middle", 
             sizing="contain", 
             layer="above"
@@ -212,17 +213,17 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 2. 彈性邊距：l=100-120 即可，避免過大導致手機版壓縮
-            margin=dict(l=100, r=40, t=50, b=20), 
+            # 2. 邊距建議：l=80-100 即可，因為文字會自動向左伸展
+            margin=dict(l=100, r=50, t=50, b=20), 
             images=logo_imgs,
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                # 3. 關鍵：用自動邊距配合 ticksuffix，保持文字與 Logo 聯動
+                # 3. 關鍵：開啟自動邊距，讓系統自動處理不同長度的 Ticker
                 automargin=True, 
-                ticksuffix=" ", 
+                ticksuffix=" ", # 在文字後加一個空格，稍微推開條形圖
                 tickfont=dict(
                     size=12, 
                     color=COLORS['muted'], 
