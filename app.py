@@ -13,7 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：加入針對 Segmented Control (Timeline) 的深度縮小、指標卡響應式控制
+# CSS 修正：加入針對 Segmented Control (Timeline) 的不換行控制
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -42,54 +42,18 @@ st.markdown(f"""
         padding-top: 1.5rem;
     }}
 
-    /* --- 指標卡響應式佈局 --- */
-    .metrics-container {{
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        gap: 12px;
-        width: 100%;
-        margin-bottom: 20px;
-    }}
-    
-    .metric-card {{
-        flex: 1;
-        background-color: rgba(128, 128, 128, 0.05);
-        border: 1px solid {COLORS['gold']}22;
-        padding: 16px 5px;
-        text-align: center;
-        border-radius: 6px;
-    }}
-
-    @media (max-width: 768px) {{
-        .metrics-container {{
-            flex-direction: column !important;
-        }}
-        .metric-card {{
-            width: 100%;
-        }}
-    }}
-
-    /* --- 重大修正：強制時間軸 (Timeline) 單行顯示、縮小尺寸並禁止換行 --- */
+    /* --- 重大修正：強制時間軸 (Timeline) 單行顯示並可橫向滑動 --- */
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; 
+        scrollbar-width: none; /* Firefox 隱藏捲軸 */
     }}
     div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
-        display: none; 
+        display: none; /* Chrome/Safari 隱藏捲軸 */
     }}
     div[data-testid="stSegmentedControl"] > div {{
         flex-wrap: nowrap !important;
         min-width: min-content;
-        gap: 2px !important;
-    }}
-    div[data-testid="stSegmentedControl"] span {{
-        font-size: 0.75rem !important;
-    }}
-    div[data-testid="stSegmentedControl"] label {{
-        padding: 2px 8px !important;
-        min-height: 30px !important;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -129,16 +93,8 @@ with st.sidebar:
 # --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
 
-# 依照要求：移除 YTD，將 5Y 改為 2Y
-period_map = {
-    "1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", 
-    "1Y": "1y", "2Y": "2y", "MAX": "max"
-}
-
-# 使用 columns 限制時間軸在電腦版的最大寬度
-col_tl, _ = st.columns([6, 4])
-with col_tl:
-    selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
+period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "YTD": "ytd", "1Y": "1y", "5Y": "5y", "MAX": "max"}
+selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
 
 try:
     df = fetch_data(period_map[selected_label])
@@ -151,18 +107,18 @@ try:
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 渲染響應式指標卡
+    # 指標卡 Flexbox 佈局
     metrics_html = f"""
-    <div class="metrics-container">
-        <div class="metric-card">
+    <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
             <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VALUE</div>
             <div style="font-size:1.2rem; font-weight:bold; color:white;">{end:,.2f}</div>
         </div>
-        <div class="metric-card">
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
             <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">SHIFT</div>
             <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{total_change:+.2f}</div>
         </div>
-        <div class="metric-card">
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
             <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VAR %</div>
             <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{(total_change/start*100):+.2f}%</div>
         </div>
@@ -188,23 +144,18 @@ try:
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
         height=380, 
-        margin=dict(t=20, b=40, l=50, r=10),
+        margin=dict(t=20, b=40, l=50, r=10), # 修正：將 l 從 10 改為 50，避免 Y 軸數值被裁切
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
-            showgrid=False, 
-            fixedrange=True,  # 鎖定 X 軸，禁止使用者縮放
-            showspikes=True,
+            showgrid=False, fixedrange=True, showspikes=True,
             spikecolor="#FF3333", spikethickness=1,
             tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
             tickfont=dict(color=COLORS['muted'], size=10),
             rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
         ),
         yaxis=dict(
-            gridcolor='rgba(128,128,128,0.1)', 
-            range=[y_min - padding, y_max + padding],
-            fixedrange=True,  # 鎖定 Y 軸，禁止使用者縮放
-            tickformat=".0f", 
-            tickfont=dict(color=COLORS['muted'], size=10)
+            gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding],
+            fixedrange=True, tickformat=".0f", tickfont=dict(color=COLORS['muted'], size=10)
         ),
         hovermode="x unified"
     )
@@ -213,15 +164,12 @@ try:
     st.write("") 
 
     # --- 圖二：貢獻度圖 ---
-    val_min, val_max = row.min(), row.max()
-    val_range = val_max - val_min if val_max != val_min else 10
-    dynamic_x_min = val_min - (val_range * 0.25)
-    dynamic_x_max = val_max + (val_range * 0.25)
-
+    
+    # 僅保留 Logo 設定
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=-0.015, 
+        x=-0.01, 
         y=i,
         sizex=0.045, sizey=0.45, 
         xanchor="right", yanchor="middle", sizing="contain", layer="above"
@@ -237,10 +185,11 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=60, r=60, t=50, b=40), 
+        margin=dict(l=60, r=40, t=50, b=40), 
         images=logo_imgs,
+        annotations=[],                       
         yaxis=dict(showticklabels=False, fixedrange=True), 
-        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True, range=[dynamic_x_min, dynamic_x_max]),
+        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
         title=dict(
             text=f"CONTRIBUTION ({selected_label})", 
             font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
