@@ -13,7 +13,6 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：重點在於強制 Segmented Control 不換行與橫向捲動
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -31,26 +30,13 @@ st.markdown(f"""
         font-size: 2.2rem; 
         margin: 10px 0; 
     }}
-
-    /* 修正問題 1：強制時間軸按鈕在一行，並在手機上可橫向滑動 */
-    div[data-testid="stSegmentedControl"] > div {{
-        flex-wrap: nowrap !important;
-        overflow-x: auto !important;
-        scrollbar-width: none; /* 隱藏捲軸 Firefox */
-    }}
-    div[data-testid="stSegmentedControl"] > div::-webkit-scrollbar {{
-        display: none; /* 隱藏捲軸 Chrome/Safari */
-    }}
-    div[data-testid="stSegmentedControl"] button {{
-        flex-shrink: 0 !important; /* 防止按鈕被擠壓 */
-        min-width: 60px !important;
-    }}
     
     section[data-testid="stSidebar"] {{ 
         background-color: #252525 !important; 
         border-right: 1px solid rgba(128, 128, 128, 0.1); 
     }}
 
+    /* 限制電腦版寬度，防止圖表過扁 */
     .block-container {{
         max-width: 1000px !important;
         padding-top: 1.5rem;
@@ -99,6 +85,7 @@ selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()
 try:
     df = fetch_data(period_map[selected_label])
     if INDEX_SYMBOL not in df.columns:
+        st.error(f"數據缺失：找不到 {INDEX_SYMBOL}")
         st.stop()
 
     idx_series = df[INDEX_SYMBOL]
@@ -106,79 +93,104 @@ try:
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 指標卡片 HTML (確保手機並排)
-    st.markdown(f"""
-    <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 8px; width: 100%; margin-bottom: 20px;">
-        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 12px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.7rem; font-weight:600; margin-bottom:4px;">VALUE</div>
-            <div style="font-size:1rem; font-weight:bold; color:white;">{end:,.2f}</div>
+    # 修正 1：使用 Inline HTML 確保在所有裝置上都與上方元件寬度 100% 貼齊且水平排列[cite: 2]
+    metrics_html = f"""
+    <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
+            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VALUE</div>
+            <div style="font-size:1.2rem; font-weight:bold; color:white;">{end:,.2f}</div>
         </div>
-        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 12px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.7rem; font-weight:600; margin-bottom:4px;">SHIFT</div>
-            <div style="font-size:1rem; font-weight:bold; color:{val_color};">{total_change:+.2f}</div>
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
+            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">SHIFT</div>
+            <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{total_change:+.2f}</div>
         </div>
-        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 12px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.7rem; font-weight:600; margin-bottom:4px;">VAR %</div>
-            <div style="font-size:1rem; font-weight:bold; color:{val_color};">{(total_change/start*100):+.2f}%</div>
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
+            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VAR %</div>
+            <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{(total_change/start*100):+.2f}%</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(metrics_html, unsafe_allow_html=True)
 
+    # 數據計算
     returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
     raw_impact = returns * 0.1
     impact_sum = raw_impact.sum()
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
     # --- 圖一：趨勢圖 ---
+    y_min, y_max = idx_series.min(), idx_series.max()
+    padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+    
     fig_idx = go.Figure(go.Scatter(
         x=idx_series.index, y=idx_series.values, 
         line=dict(color=COLORS['gold'], width=2, shape='spline'),
-        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)'
+        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+        hoverinfo="x+y"
     ))
+    
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
         height=380, margin=dict(t=20, b=40, l=10, r=10),
-        xaxis=dict(showgrid=False, tickfont=dict(color=COLORS['muted'], size=10)),
-        yaxis=dict(gridcolor='rgba(128,128,128,0.1)', tickfont=dict(color=COLORS['muted'], size=10)),
+        hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
+        xaxis=dict(
+            showgrid=False, fixedrange=True, showspikes=True,
+            spikecolor="#FF3333", spikethickness=1,
+            tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
+            tickfont=dict(color=COLORS['muted'], size=10),
+            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
+        ),
+        yaxis=dict(
+            gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding],
+            fixedrange=True, tickformat=".0f", tickfont=dict(color=COLORS['muted'], size=10)
+        ),
         hovermode="x unified"
     )
     st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    # --- 圖二：貢獻度圖 (修正 Logo 重疊問題) ---
-    # 修正重點 2：將 Logo 鎖定在標籤左側 (x=-0.08) 並向右對齊 (xanchor="right")
+    st.write("") # 間隔
+
+    # --- 圖二：貢獻度圖 ---
+    # 修正 2：改用原生 ticktext 並加上 &nbsp; 空出 Logo 位置，徹底解決縮放跑位問題[cite: 2]
+    ticker_labels_html = [f"<b>{t}</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" for t in row.index]
+
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=-0.08, # 固定在一個較遠的負座標
+        x=0,              # 精確鎖定在圖表的 Y 軸線上[cite: 2]
         y=i,
-        sizex=0.035, sizey=0.45, 
-        xanchor="right", # 向右對齊，確保不論圖表多寬，Logo 都會貼在文字左邊
-        yanchor="middle", sizing="contain", layer="above"
-    ) for i, t in enumerate(row.index)]
-
-    ticker_labels = [dict(
-        xref="paper", yref="y", 
-        x=-0.07, # 標籤緊隨 Logo 之後
-        y=i,
-        text=f"<b>{t}</b>",
-        showarrow=False, xanchor="left", yanchor="middle",
-        font=dict(size=11, color=COLORS['muted'], family="Josefin Sans")
+        sizex=0.045, sizey=0.5, 
+        xanchor="right",  # 將圖片固定在 Y 軸的左側空間，取代不可靠的 x=-0.12[cite: 2]
+        yanchor="middle", 
+        sizing="contain", layer="above"
     ) for i, t in enumerate(row.index)]
 
     fig_bar = go.Figure(go.Bar(
         y=row.index, x=row.values, orientation='h',
         marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
         text=row.values.round(2), textposition='outside',
-        textfont=dict(color=COLORS['muted'], size=10), cliponaxis=False 
+        textfont=dict(color=COLORS['muted'], size=10),
+        cliponaxis=False 
     ))
     
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        height=550, margin=dict(l=100, r=40, t=50, b=40),
-        images=logo_imgs, annotations=ticker_labels,
-        yaxis=dict(showticklabels=False, fixedrange=True),
+        height=550, 
+        margin=dict(l=90, r=40, t=50, b=40), # l=90 留出固定空間給原生的 Y 軸標籤與 Logo[cite: 2]
+        images=logo_imgs,
+        yaxis=dict(
+            showticklabels=True, 
+            ticktext=ticker_labels_html, 
+            tickvals=list(range(len(row.index))),
+            fixedrange=True, 
+            tickfont=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
+        ),
         xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
-        title=dict(text=f"CONTRIBUTION ({selected_label})", x=0.5, font=dict(color=COLORS['gold'], size=16)),
+        title=dict(
+            text=f"CONTRIBUTION ({selected_label})", 
+            font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
+            x=0.5, xanchor="center"
+        ),
         bargap=0.3 
     )
     st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
