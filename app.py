@@ -112,10 +112,15 @@ try:
                         xaxis=dict(
                             showgrid=False, 
                             fixedrange=True,
-                            showspikes=False,    # 關閉引導線
-                            showline=False,      # 關鍵：關閉底部軸線
-                            zeroline=False,      # 關鍵：關閉零線
-                            tickfont=dict(color=COLORS['muted']), # 讓文字顏色淡一點
+                            showspikes=False,
+                            # --- 強制移除所有軸線標記 ---
+                            showline=False,      # 移除軸線
+                            zeroline=False,      # 移除零線
+                            mirror=False,        # 確保不會在對向產生鏡像線
+                            ticks="",            # 關鍵：移除刻度小短線
+                            showticklabels=True, # 保留文字
+                            # -------------------------
+                            tickfont=dict(color=COLORS['muted'], size=10),
                             rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
                         ),
                         yaxis=dict(
@@ -123,7 +128,9 @@ try:
                             range=[y_min - padding, y_max + padding],
                             fixedrange=True,
                             tickformat=".0f",
-                            showline=False      # 關閉左側軸線
+                            showline=False,
+                            zeroline=False,
+                            ticks=""
                         ),
                         dragmode=False,
                         hovermode="x unified"
