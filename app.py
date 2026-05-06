@@ -149,36 +149,37 @@ try:
                 hovermode="x unified"
             )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+
     with col2: # 貢獻度圖表
-            # 1. 將 x 從 -0.12 改為 -0.25 (讓圖標往左移，遠離文字)
-            logo_imgs = [dict(
-                source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-                xref="paper", yref="y", x=-0.25, y=i,
-                sizex=0.08, sizey=0.7, xanchor="center", yanchor="middle", sizing="contain", layer="above"
-            ) for i, t in enumerate(row.index)]
-    
-            fig_bar = go.Figure(go.Bar(
-                y=row.index, x=row.values, orientation='h',
-                marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-                text=row.values.round(2), textposition='outside'
-            ))
-            
-            fig_bar.update_layout(
-                template="none",
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                height=450, 
-                # 2. 將 l 從 140 改為 180 (增加左側預留空間)
-                margin=dict(l=180, r=60, t=50, b=20),
-                images=logo_imgs,
-                yaxis=dict(
-                    # 3. 增加刻度文字與軸線的距離
-                    ticksuffix="      ", 
-                    fixedrange=True,
-                    tickfont=dict(size=11)
-                ),
-                xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.2)'),
-                title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14))
-            )
+        # 1. 將 x 從 -0.12 改為 -0.25 (讓圖標往左移，遠離文字)
+        logo_imgs = [dict(
+            source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
+            xref="paper", yref="y", x=-0.25, y=i,
+            sizex=0.08, sizey=0.7, xanchor="center", yanchor="middle", sizing="contain", layer="above"
+        ) for i, t in enumerate(row.index)]
+
+        fig_bar = go.Figure(go.Bar(
+            y=row.index, x=row.values, orientation='h',
+            marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+            text=row.values.round(2), textposition='outside'
+        ))
+        
+        fig_bar.update_layout(
+            template="none",
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            height=450, 
+            # 2. 將 l 從 140 改為 180 (增加左側預留空間)
+            margin=dict(l=180, r=60, t=50, b=20),
+            images=logo_imgs,
+            yaxis=dict(
+                # 3. 增加刻度文字與軸線的距離
+                ticksuffix="      ", 
+                fixedrange=True,
+                tickfont=dict(size=11)
+            ),
+            xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.2)'),
+            title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14))
+        )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
