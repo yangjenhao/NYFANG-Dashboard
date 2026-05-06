@@ -13,7 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 優化：加入響應式指標卡與時間軸控制
+# CSS 優化：確保指標卡在不同裝置上的對齊與換行
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -32,7 +32,7 @@ st.markdown(f"""
         margin: 10px 0; 
     }}
     
-    /* --- 指標卡響應式佈局 --- */
+    /* --- 指標卡響應式佈局：確保在不同裝置各自一排 --- */
     .metrics-container {{
         display: flex;
         flex-direction: row;
@@ -51,14 +51,17 @@ st.markdown(f"""
         border-radius: 6px;
     }}
 
-    /* 當螢幕寬度小於 640px 時，指標卡改為各自佔滿一排 */
-    @media (max-width: 640px) {{
+    /* 當寬度小於 768px (一般手機/平板) 時，強制垂直排列 */
+    @media (max-width: 768px) {{
         .metrics-container {{
             flex-direction: column !important;
         }}
+        .metric-card {{
+            width: 100%;
+        }}
     }}
 
-    /* 時間軸不換行 */
+    /* 時間軸橫向滑動 */
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
@@ -116,7 +119,7 @@ try:
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 修正：使用響應式 CSS 類別的指標卡
+    # 響應式指標卡佈局
     metrics_html = f"""
     <div class="metrics-container">
         <div class="metric-card">
@@ -158,29 +161,29 @@ try:
     )
     st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    # --- 圖二：貢獻度圖 (優化對齊) ---
+    # --- 圖二：貢獻度圖 (修正對齊與 XSHIFT 錯誤) ---
     
-    # 動態計算 X 軸 Range (同上個版本優化)
     val_min, val_max = row.min(), row.max()
     val_range = val_max - val_min if val_max != val_min else 10
     dynamic_x_min = val_min - (val_range * 0.35)
     dynamic_x_max = val_max + (val_range * 0.25)
 
-    # 修正：標籤對齊 (使用絕對像素 xshift，保證在不同寬度下都不會跑位)
+    # 1. 股票代號標籤 (Annotations 支持 xshift)
     ticker_labels = [dict(
         xref="paper", yref="y", 
         x=0, y=i,
-        xshift=-40,      # 代碼向左偏 40px
+        xshift=-35,      # 文字向左移動 35 像素
         text=f"<b>{t}</b>",
         showarrow=False, xanchor="right", yanchor="middle",
         font=dict(size=12, color=COLORS['muted'])
     ) for i, t in enumerate(row.index)]
 
+    # 2. Logo 圖標 (修正：使用 x 坐標而非 xshift)
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=0, y=i,
-        xshift=-75,      # Logo 向左偏 75px，與代碼保持固定距離
+        x=-0.08,          # 使用相對坐標定位在文字左側
+        y=i,
         sizex=0.045, sizey=0.45, 
         xanchor="right", yanchor="middle", sizing="contain", layer="above"
     ) for i, t in enumerate(row.index)]
@@ -195,7 +198,7 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=110, r=60, t=50, b=40), # 左邊距加大至 110px 確保標籤空間
+        margin=dict(l=120, r=60, t=50, b=40), # 加大左側邊距 l=120 以容納 Logo 與文字
         images=logo_imgs,
         annotations=ticker_labels,
         yaxis=dict(showticklabels=False, fixedrange=True), 
