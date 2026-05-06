@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- 1. DESIGN TOKENS (移除硬編碼背景色) ---
+# --- 1. DESIGN TOKENS ---
 COLORS = {
     "gold": "#D4AF37", 
     "up": "#3da35d", 
@@ -13,18 +13,18 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：讓背景隨系統切換，卡片使用 RGBA 透明度
+# CSS 修正：將 .metric-card 的背景透明度從 0.1 調降至 0.05 (更淡)
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
     .stApp {{ font-family: 'Josefin Sans', sans-serif; }}
     .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; }}
-    .metric-card {{ background-color: rgba(128, 128, 128, 0.1); border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; border-radius: 4px; }}
-    section[data-testid="stSidebar"] {{ border-right: 1px solid rgba(128, 128, 128, 0.2); }}
+    /* 背景淡化：0.1 -> 0.05 */
+    .metric-card {{ background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 15px; text-align: center; border-radius: 4px; }}
+    section[data-testid="stSidebar"] {{ border-right: 1px solid rgba(128, 128, 128, 0.15); }}
     .sidebar-content {{ padding: 10px; font-size: 0.85rem; opacity: 0.8; }}
     </style>
 """, unsafe_allow_html=True)
-
 # --- 2. DATA LOGIC (加入安全檢查防止 KeyError) ---
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
