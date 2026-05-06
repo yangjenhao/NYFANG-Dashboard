@@ -5,8 +5,8 @@ import plotly.graph_objects as go
 
 # --- 1. DESIGN TOKENS ---
 COLORS = {
-    "bg": "#1E1E1E",        # 淡化後的背景
-    "card_bg": "#262626",   # 淡化後的卡片背景
+    "bg": "#1E1E1E", 
+    "card_bg": "#262626", 
     "fg": "#F2F0E4", 
     "gold": "#D4AF37", 
     "muted": "#AAAAAA", 
@@ -54,7 +54,7 @@ with st.sidebar:
             <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
             <hr style="border-color:{COLORS['gold']}22;">
             <p>STATUS: <span style="color:{COLORS['up']};">ONLINE</span></p>
-            <p style="font-size:0.75rem; line-height:1.4;">Interactive Zoom: ACTIVE.<br>Dynamic Range: ENABLED.</p>
+            <p style="font-size:0.75rem; line-height:1.4;">Weekend Filter: ACTIVE.<br>Spike Guides: ENABLED.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -76,7 +76,6 @@ try:
     with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">SHIFT</p><h2 style="color:{color}">{total_change:+.2f}</h2></div>', unsafe_allow_html=True)
     with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.8rem;">VAR %</p><h2 style="color:{color}">{(total_change/start*100):+.2f}%</h2></div>', unsafe_allow_html=True)
 
-    # 貢獻度計算
     returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
     raw_impact = returns * 0.1
     impact_sum = raw_impact.sum()
@@ -84,39 +83,47 @@ try:
 
     col1, col2 = st.columns([1.2, 1])
     
-    with col1: # 指數走勢圖 - 完全禁用縮放
-            y_min, y_max = idx_series.min(), idx_series.max()
-            padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
-            
-            fig_idx = go.Figure(go.Scatter(
-                x=idx_series.index, y=idx_series.values, 
-                line=dict(color=COLORS['gold'], width=2, shape='spline'),
-                fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
-                hoverinfo="x+y"
-            ))
-            fig_idx.update_layout(
-                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                height=450, margin=dict(t=20, b=20),
-                xaxis=dict(
-                    showgrid=False, 
-                    fixedrange=True  # 禁止 X 軸縮放
-                ),
-                yaxis=dict(
-                    gridcolor='#333', 
-                    range=[y_min - padding, y_max + padding],
-                    fixedrange=True, # 禁止 Y 軸縮放
-                    tickformat=".0f"
-                ),
-                dragmode=False      # 停用拖拽縮放模式
-            )
-            st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+    with col1: # 指數走勢圖
+        y_min, y_max = idx_series.min(), idx_series.max()
+        padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+        
+        fig_idx = go.Figure(go.Scatter(
+            x=idx_series.index, y=idx_series.values, 
+            line=dict(color=COLORS['gold'], width=2, shape='spline'),
+            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+            hoverinfo="x+y"
+        ))
+        
+        # 設定垂直虛線引導與隱藏週末
+        fig_idx.update_xaxes(
+            showgrid=False,
+            fixedrange=True,
+            showspikes=True, # 開啟虛線
+            spikethickness=1,
+            spikedash="dot",
+            spikemode="across",
+            spikecolor=COLORS['muted'],
+            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None # 隱藏週末
+        )
+        
+        fig_idx.update_layout(
+            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+            height=450, margin=dict(t=20, b=20),
+            yaxis=dict(
+                gridcolor='#333', 
+                range=[y_min - padding, y_max + padding],
+                fixedrange=True,
+                tickformat=".0f"
+            ),
+            dragmode=False,
+            hovermode="x unified" # 統一樣式以便讀取
+        )
+        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 個股貢獻度
         logo_imgs = []
         for ticker in row.index:
             domain = DOMAIN_MAP.get(ticker, "google.com")
-            
-            # MU 襯底優化
             if ticker == "MU":
                 logo_imgs.append(dict(
                     source="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/circle.svg", 
@@ -124,7 +131,6 @@ try:
                     sizex=0.055, sizey=0.55, xanchor="right", yanchor="middle", 
                     sizing="contain", opacity=1.0, layer="below"
                 ))
-
             logo_imgs.append(dict(
                 source=f"https://www.google.com/s2/favicons?sz=64&domain={domain}",
                 xref="paper", yref="y", x=-0.12, y=ticker,
