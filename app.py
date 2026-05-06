@@ -166,6 +166,12 @@ try:
 
     # --- 圖二：貢獻度圖 ---
     
+    # 調整：計算數據範圍並擴大左右邊界 (從 0.25 提高到 0.5)
+    val_min, val_max = row.min(), row.max()
+    val_range = val_max - val_min if val_max != val_min else 10
+    dynamic_x_min = val_min - (val_range * 0.5)
+    dynamic_x_max = val_max + (val_range * 0.5)
+
     # 僅保留 Logo 設定
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
@@ -186,11 +192,16 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=60, r=40, t=50, b=40), 
+        margin=dict(l=60, r=60, t=50, b=40), # 稍微增加右邊界 r 到 60，避免數值文字被切到
         images=logo_imgs,
         annotations=[],                       
         yaxis=dict(showticklabels=False, fixedrange=True), 
-        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
+        xaxis=dict(
+            showgrid=True, 
+            gridcolor='rgba(128,128,128,0.05)', 
+            fixedrange=True,
+            range=[dynamic_x_min, dynamic_x_max] # 強制套用擴大後的範圍
+        ),
         title=dict(
             text=f"CONTRIBUTION ({selected_label})", 
             font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
