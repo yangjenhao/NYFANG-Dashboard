@@ -151,14 +151,14 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 1. 重新微調定位：x 設為負值，xanchor 設為 "left"
+        # 1. 圖標位置稍微往右拉一點 (x=-0.08)，準備讓文字貼過來
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.22,          # 如果 Logo 還是沒出現，把這個值調大一點（如 -0.18）
+            x=-0.08,          
             y=i,
             sizex=0.06, sizey=0.6, 
-            xanchor="left",   
+            xanchor="right",   # 讓圖標右側作為錨點
             yanchor="middle", 
             sizing="contain", 
             layer="above"
@@ -180,15 +180,17 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 2. 增加左邊距至 140，確保有空間塞下 Logo + 文字
-            margin=dict(l=140, r=60, t=50, b=20), 
+            # 2. 縮小左邊距，讓整個 Y 軸標籤往左側邊界靠
+            margin=dict(l=80, r=60, t=50, b=20), 
             images=logo_imgs,
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                ticksuffix=" ", # 保持一個空格即可
+                # 3. 關鍵：設定 automargin 為 False 並手動控制寬度，強迫文字靠左
+                automargin=False,
+                ticksuffix=" ", 
                 tickfont=dict(
                     size=12, 
                     color=COLORS['muted'], 
