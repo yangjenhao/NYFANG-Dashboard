@@ -64,15 +64,16 @@ with st.sidebar:
 
 # --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
+
 period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "YTD": "ytd", "1Y": "1y", "5Y": "5y", "MAX": "max"}
 selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
 
 try:
     df = fetch_data(period_map[selected_label])
     
-    # 安全檢查：若缺少欄位則停止執行，避免 KeyError
+    # 關鍵檢查：避免 KeyError
     if INDEX_SYMBOL not in df.columns:
-        st.error(f"Missing data for {INDEX_SYMBOL}. Please refresh.")
+        st.error(f"數據缺失：找不到 {INDEX_SYMBOL}")
         st.stop()
 
     idx_series = df[INDEX_SYMBOL]
@@ -92,22 +93,58 @@ try:
 
     col1, col2 = st.columns([1.2, 1])
     
-    with col1: # 趨勢圖 (移除 template="plotly_dark")
-        fig_idx = go.Figure(go.Scatter(x=idx_series.index, y=idx_series.values, line=dict(color=COLORS['gold'], width=2, shape='spline'), fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)'))
+    with col1: # 指數走勢圖 - 還原所有視覺細節
+        y_min, y_max = idx_series.min(), idx_series.max()
+        padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+        
+        fig_idx = go.Figure(go.Scatter(
+            x=idx_series.index, y=idx_series.values, 
+            line=dict(color=COLORS['gold'], width=2, shape='spline'), # 還原平滑曲線
+            fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)',
+            hoverinfo="x+y"
+        ))
+        
         fig_idx.update_layout(
-            template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+            template="none", # 移除 dark 模板改用自動適應
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
             height=450, margin=dict(t=20, b=20),
-            xaxis=dict(showgrid=False, fixedrange=True, rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None),
-            yaxis=dict(gridcolor='rgba(128,128,128,0.2)', fixedrange=True, tickformat=".0f"),
+            xaxis=dict(
+                showgrid=False, 
+                fixedrange=True,
+                showspikes=True, # 還原虛線引導
+                spikethickness=1,
+                spikedash="dot",
+                spikemode="across",
+                spikecolor="rgba(128,128,128,0.5)",
+                rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
+            ),
+            yaxis=dict(
+                gridcolor='rgba(128,128,128,0.2)', # 改用透明色，深淺模式皆美
+                range=[y_min - padding, y_max + padding],
+                fixedrange=True,
+                tickformat=".0f"
+            ),
+            dragmode=False,
             hovermode="x unified"
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2: # 貢獻圖 (移除 template="plotly_dark")
-        logo_imgs = [dict(source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}", xref="paper", yref="y", x=-0.12, y=i, sizex=0.08, sizey=0.7, xanchor="center", yanchor="middle", sizing="contain", layer="above") for i, t in enumerate(row.index)]
-        fig_bar = go.Figure(go.Bar(y=row.index, x=row.values, orientation='h', marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values], text=row.values.round(2), textposition='outside'))
+    with col2: # 貢獻度圖表
+        logo_imgs = [dict(
+            source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
+            xref="paper", yref="y", x=-0.12, y=i,
+            sizex=0.08, sizey=0.7, xanchor="center", yanchor="middle", sizing="contain", layer="above"
+        ) for i, t in enumerate(row.index)]
+
+        fig_bar = go.Figure(go.Bar(
+            y=row.index, x=row.values, orientation='h',
+            marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+            text=row.values.round(2), textposition='outside'
+        ))
+        
         fig_bar.update_layout(
-            template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            template="none",
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             height=450, margin=dict(l=140, r=60, t=50, b=20),
             images=logo_imgs,
             yaxis=dict(ticksuffix="      ", fixedrange=True),
@@ -117,4 +154,4 @@ try:
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
-    st.error(f"Application Error: {e}")
+    st.error(f"系統錯誤: {e}")
