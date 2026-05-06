@@ -30,12 +30,13 @@ def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     
     if p == "5d":
-        # 抓取 1 個月確保數據覆蓋 4/30 至 5/6
-        raw_data = yf.download(all_symbols, period="1mo", interval="1d", progress=False, auto_adjust=False)['Close']
-        raw_data.index = pd.to_datetime(raw_data.index).normalize()
-        # 精確取最後 5 個交易日：4/30, 5/1, 5/4, 5/5, 5/6
-        data = raw_data.tail(5)
+        # 抓取 1 個月數據確保緩衝充足
+        raw = yf.download(all_symbols, period="1mo", interval="1d", progress=False, auto_adjust=False)['Close']
+        raw.index = pd.to_datetime(raw.index).normalize()
+        # 排除所有 NaN 後取最後 5 個交易日
+        data = raw.dropna(subset=[INDEX_SYMBOL]).tail(5)
     elif p == "1d":
+        # 1D 模式抓取最近 2 天的分鐘線以獲取昨日收盤至今的走勢
         data = yf.download(all_symbols, period="2d", interval="1m", progress=False, auto_adjust=False)['Close']
         if data.index.tz is not None: 
             data.index = data.index.tz_convert('America/New_York').tz_localize(None)
@@ -47,7 +48,7 @@ def fetch_data(p):
             
     return data.ffill().dropna()
 
-# --- 3. SIDEBAR (TERMINAL) ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus;'>TERMINAL</h2>", unsafe_allow_html=True)
     st.markdown(f"""
@@ -55,7 +56,7 @@ with st.sidebar:
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
             <p><b>SYSTEM:</b> NYSE FANG+ TERMINAL</p>
             <hr style="border-color:{COLORS['gold']}22;">
-            <p style="font-size:0.8rem;">Current Target: 4/30 - 5/6 Window. <br>Category-based axis mapping enabled.</p>
+            <p style="font-size:0.8rem;">Current Date: {datetime.now().strftime('%Y-%m-%d')}<br>Live Session Sync: Enabled.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -94,7 +95,6 @@ try:
         y_min, y_max = idx_series.min(), idx_series.max()
         y_padding = (y_max - y_min) * 0.05 if (y_max - y_min) > 0 else 10
         
-        # 轉換日期格式以支援類別軸
         x_axis_data = df.index.strftime('%m/%d') if period_val != '1d' else df.index
 
         fig_idx = go.Figure(go.Scatter(
@@ -104,18 +104,10 @@ try:
             hoverinfo="x+y"
         ))
         
-        xaxis_cfg = dict(
-            type='category' if period_val != '1d' else 'date',
-            showgrid=False, 
-            color=COLORS['muted'], 
-            fixedrange=True, 
-            nticks=5
-        )
-        
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
             margin=dict(l=10, r=10, t=20, b=10), height=380, 
-            xaxis=xaxis_cfg, 
+            xaxis=dict(type='category' if period_val != '1d' else 'date', showgrid=False, color=COLORS['muted'], fixedrange=True, nticks=5),
             yaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222', nticks=6, range=[y_min - y_padding, y_max + y_padding]),
             hovermode="x"
         )
