@@ -13,7 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：優化時間軸 (Timeline) 縮小顯示與指標卡響應式
+# CSS 修正：加入針對 Segmented Control (Timeline) 的深度縮小、指標卡響應式控制
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -70,7 +70,7 @@ st.markdown(f"""
         }}
     }}
 
-    /* --- 時間軸深度縮小與防換行控制 --- */
+    /* --- 重大修正：強制時間軸 (Timeline) 單行顯示、縮小尺寸並禁止換行 --- */
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
@@ -81,6 +81,7 @@ st.markdown(f"""
     }}
     div[data-testid="stSegmentedControl"] > div {{
         flex-wrap: nowrap !important;
+        min-width: min-content;
         gap: 2px !important;
     }}
     div[data-testid="stSegmentedControl"] span {{
@@ -128,13 +129,13 @@ with st.sidebar:
 # --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
 
-# 修正：移除 YTD, 將 5Y 改為 2Y
+# 依照要求：移除 YTD，將 5Y 改為 2Y
 period_map = {
     "1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", 
     "1Y": "1y", "2Y": "2y", "MAX": "max"
 }
 
-# 使用 columns 限制時間軸寬度
+# 使用 columns 限制時間軸在電腦版的最大寬度
 col_tl, _ = st.columns([6, 4])
 with col_tl:
     selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
@@ -150,7 +151,7 @@ try:
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 指標卡渲染
+    # 渲染響應式指標卡
     metrics_html = f"""
     <div class="metrics-container">
         <div class="metric-card">
@@ -186,20 +187,32 @@ try:
     
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=380, margin=dict(t=20, b=40, l=50, r=10),
+        height=380, 
+        margin=dict(t=20, b=40, l=50, r=10),
+        hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
-            showgrid=False, tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
-            tickfont=dict(color=COLORS['muted'], size=10)
+            showgrid=False, 
+            fixedrange=True,  # 鎖定 X 軸，禁止使用者縮放
+            showspikes=True,
+            spikecolor="#FF3333", spikethickness=1,
+            tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
+            tickfont=dict(color=COLORS['muted'], size=10),
+            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
         ),
         yaxis=dict(
-            gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding],
-            tickformat=".0f", tickfont=dict(color=COLORS['muted'], size=10)
+            gridcolor='rgba(128,128,128,0.1)', 
+            range=[y_min - padding, y_max + padding],
+            fixedrange=True,  # 鎖定 Y 軸，禁止使用者縮放
+            tickformat=".0f", 
+            tickfont=dict(color=COLORS['muted'], size=10)
         ),
         hovermode="x unified"
     )
     st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    # --- 圖二：貢獻度圖 (僅保留 Logo) ---
+    st.write("") 
+
+    # --- 圖二：貢獻度圖 ---
     val_min, val_max = row.min(), row.max()
     val_range = val_max - val_min if val_max != val_min else 10
     dynamic_x_min = val_min - (val_range * 0.25)
