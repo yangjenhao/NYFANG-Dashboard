@@ -5,27 +5,26 @@ import plotly.graph_objects as go
 
 # --- 1. DESIGN TOKENS (移除硬編碼背景色) ---
 COLORS = {
-    "bg": "#1d1916",      # Anthropic 深色背景 (Shell)
-    "card_bg": "#2a2622", # 稍淺的深褐灰
-    "fg": "#f9f6f1",      # Anthropic 暖白文字
-    "gold": "#d97757",    # 磚紅/土橘色 (類似其品牌點綴色)
-    "muted": "#8d8680",   # 灰褐色
-    "up": "#3da35d",      # 莫蘭迪綠
-    "down": "#e05e5e"     # 莫蘭迪紅
+    "gold": "#D4AF37", 
+    "up": "#3da35d", 
+    "down": "#e05e5e",
+    "muted": "#8d8680"
 }
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
+# CSS 修正：讓背景隨系統切換，卡片使用 RGBA 透明度
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
-    .stApp {{ background-color: {COLORS['bg']}; color: {COLORS['fg']}; font-family: 'Josefin Sans', sans-serif; }}
-    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['fg']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; letter-spacing: 3px; }}
-    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['muted']}33; padding: 15px; text-align: center; border-radius: 8px; }}
-    section[data-testid="stSidebar"] {{ background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['muted']}44; }}
-    .sidebar-content {{ padding: 15px; font-size: 0.85rem; color: {COLORS['muted']}; }}
+    .stApp {{ font-family: 'Josefin Sans', sans-serif; }}
+    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; }}
+    .metric-card {{ background-color: rgba(128, 128, 128, 0.1); border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; border-radius: 4px; }}
+    section[data-testid="stSidebar"] {{ border-right: 1px solid rgba(128, 128, 128, 0.2); }}
+    .sidebar-content {{ padding: 10px; font-size: 0.85rem; opacity: 0.8; }}
     </style>
 """, unsafe_allow_html=True)
+
 # --- 2. DATA LOGIC (加入安全檢查防止 KeyError) ---
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
@@ -152,29 +151,17 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 1. 建立圖標：固定在 x=-0.2 處
+        # 1. 調整圖標定位：配合更大的左邊距，x 座標需要同步微調
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.22,          # 固定 Logo 的左側起點
+            x=-0.12,          # 稍微往右調，讓它跟隨被推向右邊的文字
             y=i,
             sizex=0.06, sizey=0.6, 
-            xanchor="left",   
+            xanchor="right",   
             yanchor="middle", 
             sizing="contain", 
             layer="above"
-        ) for i, t in enumerate(row.index)]
-
-        # 2. 建立自定義文字標籤：強制左對齊並貼近 Logo
-        ticker_annotations = [dict(
-            xref="paper", yref="y",
-            x=-0.15,          # 文字起點緊跟在 Logo 之後
-            y=i,
-            text=t,           # 顯示 Ticker 名稱
-            showarrow=False,
-            xanchor="left",   # 關鍵：強制文字向左對齊
-            yanchor="middle",
-            font=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
         ) for i, t in enumerate(row.index)]
 
         fig_bar = go.Figure(go.Bar(
@@ -193,16 +180,22 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 3. 調整邊距：l=160 預留空間給左側的 Logo + 文字
-            margin=dict(l=160, r=40, t=50, b=20), 
+            # 2. 核心修改：大幅增加左邊距 (l) 將整個圖表往右推
+            # 同時縮小右邊距 (r) 避免圖表被壓縮太扁
+            margin=dict(l=180, r=30, t=50, b=20), 
             images=logo_imgs,
-            annotations=ticker_annotations, # 加入手動對齊的文字
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                showticklabels=False, # 隱藏原本亂跳的預設標籤
+                automargin=False, # 關閉自動邊距，讓文字聽從我們的定位
+                ticksuffix=" ", 
+                tickfont=dict(
+                    size=12, 
+                    color=COLORS['muted'], 
+                    family="Josefin Sans"
+                )
             ),
             xaxis=dict(
                 showgrid=True, 
