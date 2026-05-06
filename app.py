@@ -25,17 +25,16 @@ st.markdown(f"""
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
 
-# 新增：網域對照表以抓取目前現行官方 Logo
+# 建立公司網域對照表 (用於 Logo)
 DOMAIN_MAP = {
-    "META": "meta.com", "AAPL": "apple.com", "AMZN": "amazon.com", "NFLX": "netflix.com",
-    "MSFT": "microsoft.com", "GOOGL": "google.com", "MU": "micron.com",
-    "NVDA": "nvidia.com", "PLTR": "palantir.com", "AVGO": "broadcom.com"
+    "META": "meta.com", "AAPL": "apple.com", "AMZN": "amazon.com", 
+    "NFLX": "netflix.com", "MSFT": "microsoft.com", "GOOGL": "google.com", 
+    "MU": "micron.com", "NVDA": "nvidia.com", "PLTR": "palantir.com", "AVGO": "broadcom.com"
 }
 
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
-    
     if p == "1d":
         data = yf.download(all_symbols, period="1d", interval="1m", progress=False, auto_adjust=False)['Close']
         if data.index.tz is not None: data.index = data.index.tz_convert('America/New_York').tz_localize(None)
@@ -46,7 +45,6 @@ def fetch_data(p):
     else:
         data = yf.download(all_symbols, period=p, interval="1d", progress=False, auto_adjust=False)['Close']
         data.index = pd.to_datetime(data.index).normalize()
-            
     return data.ffill().dropna()
 
 # --- 3. SIDEBAR ---
@@ -71,9 +69,7 @@ period_val = period_map[selected_label]
 try:
     df = fetch_data(period_val)
     idx_series = df[INDEX_SYMBOL]
-    
-    start_vals = df.iloc[0]
-    end_vals = df.iloc[-1]
+    start_vals, end_vals = df.iloc[0], df.iloc[-1]
     
     total_pts_change = end_vals[INDEX_SYMBOL] - start_vals[INDEX_SYMBOL]
     variance = (total_pts_change / start_vals[INDEX_SYMBOL]) * 100
@@ -95,7 +91,6 @@ try:
         y_min, y_max = idx_series.min(), idx_series.max()
         pad_factor = 0.10 if selected_label in ["1Y", "5Y", "MAX"] else 0.05
         y_padding = (y_max - y_min) * pad_factor if (y_max - y_min) > 0 else 10
-        
         is_long_term = selected_label in ["1M", "6M", "YTD", "1Y", "5Y", "MAX"]
         x_axis_data = df.index if (period_val == '1d' or is_long_term) else df.index.strftime('%m/%d')
 
@@ -105,18 +100,9 @@ try:
             line=dict(color=COLORS['gold'], width=2.5 if not is_long_term else 1.8),
             hoverinfo="x+y"
         ))
-        
         xaxis_params = dict(type='date' if (period_val == '1d' or is_long_term) else 'category', showgrid=False, color=COLORS['muted'], fixedrange=True, nticks=6)
         if period_val == '1d': fig_idx.update_xaxes(rangebreaks=[dict(bounds=[16, 9.5], pattern="hour"), dict(bounds=["sat", "mon"])])
-
-        # 統一圖表高度為 420 確保對齊
-        fig_idx.update_layout(
-            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            margin=dict(l=10, r=10, t=20, b=10), height=420, 
-            xaxis=xaxis_params,
-            yaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222', nticks=6, range=[y_min - y_padding, y_max + y_padding]),
-            hovermode="x"
-        )
+        fig_idx.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=10, r=10, t=20, b=10), height=380, xaxis=xaxis_params, yaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222', nticks=6, range=[y_min - y_padding, y_max + y_padding]), hovermode="x")
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2:
@@ -124,31 +110,30 @@ try:
         fig_bar = go.Figure(go.Bar(
             y=row.index, x=row.values, orientation='h',
             marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values], 
-            text=row.values.round(2), textposition='auto'
+            text=row.values.round(2), textposition='auto',
+            cliponaxis=False
         ))
-        
-        # 調整 margin 增加左側 (l=70) 空間來放置 Logo
+
+        # 動態生成 Logo 配置
+        logo_images = []
+        for i, ticker in enumerate(row.index):
+            domain = DOMAIN_MAP.get(ticker, "google.com")
+            logo_images.append(dict(
+                source=f"https://logo.clearbit.com/{domain}",
+                xref="paper", yref="y",
+                x=-0.06, y=i,
+                sizex=0.06, sizey=0.6,
+                xanchor="right", yanchor="middle"
+            ))
+
         fig_bar.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-            margin=dict(l=70, r=10, t=20, b=10), height=420, 
-            yaxis=dict(fixedrange=True), xaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222'),
-            title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14))
+            margin=dict(l=70, r=10, t=30, b=10), height=400, 
+            yaxis=dict(fixedrange=True, tickfont=dict(size=10, color=COLORS['muted'])), 
+            xaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222'),
+            title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14)),
+            images=logo_images
         )
-
-        # 將 Logo 直接繪製在右側圖表的內部
-        for ticker in row.index:
-            domain = DOMAIN_MAP.get(ticker, f"{ticker.lower()}.com")
-            fig_bar.add_layout_image(
-                dict(
-                    source=f"https://logo.clearbit.com/{domain}",
-                    xref="paper", yref="y",
-                    x=-0.12, y=ticker,       # 設定為負值以顯示在 Y 軸文字左側
-                    sizex=0.08, sizey=0.75,  # 提供邊界框大小
-                    sizing="contain",        # 保持圖片原始比例，避免變形
-                    xanchor="center", yanchor="middle"
-                )
-            )
-
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
