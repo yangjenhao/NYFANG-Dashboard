@@ -106,24 +106,28 @@ try:
             
             # 修正後的設定：徹底移除底部的線條 (Spikes)
             fig_idx.update_layout(
-                template="none", 
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                height=450, margin=dict(t=20, b=20),
-                xaxis=dict(
-                    showgrid=False, 
-                    fixedrange=True,
-                    showspikes=False, # 確保這裡設為 False
-                    rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
-                ),
-                yaxis=dict(
-                    gridcolor='rgba(128,128,128,0.2)',
-                    range=[y_min - padding, y_max + padding],
-                    fixedrange=True,
-                    tickformat=".0f"
-                ),
-                dragmode=False,
-                hovermode="x unified"
-            )
+                        template="none", 
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                        height=450, margin=dict(t=20, b=20),
+                        xaxis=dict(
+                            showgrid=False, 
+                            fixedrange=True,
+                            showspikes=False,    # 關閉引導線
+                            showline=False,      # 關鍵：關閉底部軸線
+                            zeroline=False,      # 關鍵：關閉零線
+                            tickfont=dict(color=COLORS['muted']), # 讓文字顏色淡一點
+                            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
+                        ),
+                        yaxis=dict(
+                            gridcolor='rgba(128,128,128,0.2)',
+                            range=[y_min - padding, y_max + padding],
+                            fixedrange=True,
+                            tickformat=".0f",
+                            showline=False      # 關閉左側軸線
+                        ),
+                        dragmode=False,
+                        hovermode="x unified"
+                    )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
