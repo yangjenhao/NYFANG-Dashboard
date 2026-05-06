@@ -29,17 +29,24 @@ def fetch_data(p):
     is_intraday = (p == "1d")
     fetch_p, interval = ("2d", "1m") if is_intraday else (("10d", "1d") if p == "5d" else (p, "1d"))
     data = yf.download(all_symbols, period=fetch_p, interval=interval, progress=False, auto_adjust=False)['Close']
+    
     if is_intraday:
-        if data.index.tz is not None: data.index = data.index.tz_convert('America/New_York').tz_localize(None)
-        else: data.index = data.index.tz_localize('UTC').tz_convert('America/New_York').tz_localize(None)
-    else: data.index = pd.to_datetime(data.index).normalize()
+        if data.index.tz is not None: 
+            data.index = data.index.tz_convert('America/New_York').tz_localize(None)
+        else: 
+            data.index = data.index.tz_localize('UTC').tz_convert('America/New_York').tz_localize(None)
+    else: 
+        data.index = pd.to_datetime(data.index).normalize()
     return data.ffill().dropna()
 
 # --- 4. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2>The Terminal</h2>", unsafe_allow_html=True)
-    # 【修正 1】優化 Timeline 選單顯示
-    period_options = [('TODAY', '1d'), ('V DAYS', '5d'), ('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('I YEAR', '1y'), ('II YEARS', '2y'), ('V YEARS', '5y'), ('YTD', 'ytd')]
+    period_options = [
+        ('TODAY', '1d'), ('V DAYS', '5d'), ('I MONTH', '1mo'), 
+        ('III MONTHS', '3mo'), ('I YEAR', '1y'), ('II YEARS', '2y'), 
+        ('V YEARS', '5y'), ('YTD', 'ytd')
+    ]
     selected_period = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=0)
     period_val = selected_period[1]
     
@@ -63,9 +70,9 @@ try:
         
         current_idx_val = idx_series.loc[plot_time]
         total_pts_change = current_idx_val - ref_val
-        shift_col = COLORS['up'] if total_pts_change >= 0 else COLORS['down'] # 【修正 3】漲跌判斷顏色
+        shift_col = COLORS['up'] if total_pts_change >= 0 else COLORS['down']
 
-        # 計算歸因
+        # 累積歸因計算
         stock_starts = df[OFFICIAL_TICKERS].iloc[loc_start-1] if loc_start > 0 else df[OFFICIAL_TICKERS].iloc[0]
         stock_returns = (df[OFFICIAL_TICKERS].loc[plot_time] / stock_starts) - 1
         raw_impacts = stock_returns * 0.1
@@ -75,7 +82,6 @@ try:
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
         
         c1, c2, c3 = st.columns(3)
-        # 【修正 3】Index Value 現在也會隨漲跌換色
         with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">INDEX VALUE</p><h3 style="color:{shift_col};">{current_idx_val:,.2f}</h3></div>', unsafe_allow_html=True)
         with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">POINT SHIFT</p><h3 style="color:{shift_col};">{total_pts_change:+.2f}</h3></div>', unsafe_allow_html=True)
         with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VARIANCE</p><h3 style="color:{shift_col};">{(total_pts_change/ref_val)*100:+.2f}%</h3></div>', unsafe_allow_html=True)
@@ -83,29 +89,35 @@ try:
         col1, col2 = st.columns(2)
         with col1:
             show_df = day_data if period_val == '1d' else idx_series
-            # 【修正 2】新增虛線輔助 (Spikelines)
-            fig_idx = go.Figure(go.Scatter(
-                x=show_df.index, y=show_df.values, 
-                line=dict(color=COLORS['gold'], width=2),
-                hoverinfo="x+y"
-            ))
+            fig_idx = go.Figure(go.Scatter(x=show_df.index, y=show_df.values, line=dict(color=COLORS['gold'], width=2), hoverinfo="x+y"))
             
+            # 【關鍵：禁用縮放 fixedrange=True】
             xaxis_cfg = dict(
-                showgrid=False, color=COLORS['muted'],
+                showgrid=False, color=COLORS['muted'], fixedrange=True,
                 showspikes=True, spikemode='across', spikesnap='cursor', spikedash='dash', spikethickness=1, spikecolor=COLORS['muted']
             )
             if period_val == '1d':
                 xaxis_cfg['tickformat'] = "%H:%M"
                 xaxis_cfg['range'] = [plot_time.replace(hour=9, minute=30), plot_time.replace(hour=16, minute=0)]
             
-            fig_idx.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=30, b=0), height=400, xaxis=xaxis_cfg, hovermode="x")
+            fig_idx.update_layout(
+                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                margin=dict(l=0, r=0, t=30, b=0), height=400, 
+                xaxis=xaxis_cfg, yaxis=dict(fixedrange=True, showgrid=True, gridcolor='#333'),
+                hovermode="x"
+            )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
         with col2:
             row = cum_contrib.sort_values(ascending=False)
             fig_bar = go.Figure(go.Bar(x=row.index, y=row.values, marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values], text=row.values.round(2), textposition='auto'))
             time_label = plot_time.strftime('%H:%M') if period_val == '1d' else plot_time.strftime('%Y-%m-%d')
-            fig_bar.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=30, b=0), height=400, title=dict(text=f"CONTRIBUTION ({time_label})", font=dict(color=COLORS['gold'], size=14)))
+            fig_bar.update_layout(
+                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                margin=dict(l=0, r=0, t=30, b=0), height=400, 
+                yaxis=dict(fixedrange=True), xaxis=dict(fixedrange=True),
+                title=dict(text=f"CONTRIBUTION ({time_label})", font=dict(color=COLORS['gold'], size=14))
+            )
             st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
     else:
         st.warning("NO DATA FOUND FOR THIS PERIOD.")
