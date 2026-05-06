@@ -151,34 +151,60 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 1. 將 x 從 -0.12 改為 -0.25 (讓圖標往左移，遠離文字)
+        # 設定圖標：x 座標與 xanchor 是對齊文字的關鍵
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-            xref="paper", yref="y", x=-0.25, y=i,
-            sizex=0.08, sizey=0.7, xanchor="center", yanchor="middle", sizing="contain", layer="above"
+            xref="paper", yref="y", 
+            x=-0.15,          # 讓圖標靠近 Y 軸邊界
+            y=i,
+            sizex=0.07, sizey=0.7, 
+            xanchor="right",  # 改為右對齊，讓圖標往文字方向靠攏
+            yanchor="middle", 
+            sizing="contain", 
+            layer="above"
         ) for i, t in enumerate(row.index)]
 
         fig_bar = go.Figure(go.Bar(
-            y=row.index, x=row.values, orientation='h',
+            y=row.index, 
+            x=row.values, 
+            orientation='h',
             marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-            text=row.values.round(2), textposition='outside'
+            text=row.values.round(2), 
+            textposition='outside',
+            textfont=dict(color=COLORS['muted'], size=10),
+            cliponaxis=False # 確保長數字不會被切掉
         ))
         
         fig_bar.update_layout(
             template="none",
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 2. 將 l 從 140 改為 180 (增加左側預留空間)
-            margin=dict(l=180, r=60, t=50, b=20),
+            # 調整左邊距 (l)，預留空間給圖標與文字對齊
+            margin=dict(l=120, r=60, t=50, b=20),
             images=logo_imgs,
             yaxis=dict(
-                # 3. 增加刻度文字與軸線的距離
-                ticksuffix="      ", 
+                showgrid=False,
+                showline=False,
+                zeroline=False,
                 fixedrange=True,
-                tickfont=dict(size=11)
+                # 調整文字與軸線的距離，這裡只留一個微小空格
+                tickformat="", 
+                ticksuffix=" ", 
+                tickfont=dict(size=12, color=COLORS['muted'], font_family="Josefin Sans")
             ),
-            xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.2)'),
-            title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=14))
+            xaxis=dict(
+                showgrid=True, 
+                gridcolor='rgba(128,128,128,0.1)',
+                zerolinecolor='rgba(128,128,128,0.3)', # 讓 0 軸線明顯一點
+                fixedrange=True
+            ),
+            title=dict(
+                text=f"CONTRIBUTION ({selected_label})", 
+                font=dict(color=COLORS['gold'], size=14, family="Josefin Sans"),
+                x=0.5, xanchor="center"
+            ),
+            bargap=0.3 # 調整長條圖間距，讓圖標有更多垂直空間
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
