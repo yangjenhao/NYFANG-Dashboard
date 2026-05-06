@@ -151,13 +151,14 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
+        # 優化圖標定位：使用 left 對齊，並將 x 設為負值
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.15,          
+            x=-0.28,          # 1. 調整此值 (越負越往左)，直到它靠在文字左側
             y=i,
-            sizex=0.07, sizey=0.7, 
-            xanchor="right",  
+            sizex=0.06, sizey=0.6, 
+            xanchor="left",   # 2. 改回 left 對齊，定位會更直觀
             yanchor="middle", 
             sizing="contain", 
             layer="above"
@@ -179,19 +180,20 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            margin=dict(l=120, r=60, t=50, b=20),
+            # 3. 確保左邊距足夠容納 Logo + 文字
+            margin=dict(l=150, r=60, t=50, b=20), 
             images=logo_imgs,
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                ticksuffix=" ", 
-                # 修正處：將 font_family 改為 family，並移除多餘的嵌套
+                # 4. 增加間隔，讓文字與條形圖分開一點點
+                ticksuffix="  ", 
                 tickfont=dict(
                     size=12, 
                     color=COLORS['muted'], 
-                    family="Josefin Sans" 
+                    family="Josefin Sans"
                 )
             ),
             xaxis=dict(
