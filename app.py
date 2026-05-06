@@ -104,50 +104,50 @@ try:
                 hoverinfo="x+y"
             ))
             
-             fig_idx.update_layout(
-                        template="none", 
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                        height=450, 
-                        margin=dict(t=20, b=40, l=20, r=20),
-                        # --- 精化懸停標籤 (讓方框更高級) ---
-                        hoverlabel=dict(
-                            bgcolor="rgba(30, 30, 30, 0.9)", # 深色半透明底，質感更佳
-                            font_size=13,
-                            font_color=COLORS['gold'],       # 金色文字
-                            font_family="Josefin Sans",      # 統一字體
-                            bordercolor=COLORS['gold'],      # 金色邊框
-                            namelength=-1                    # 顯示完整名稱
-                        ),
-                        # ---------------------------
-                        xaxis=dict(
-                            showgrid=False, 
-                            fixedrange=True,
-                            showspikes=True,
-                            spikecolor=COLORS['gold'],       # 虛線改用金色，呼應主題
-                            spikethickness=1,
-                            spikedash="dash",                # 點狀線改為短虛線，更專業
-                            spikemode="across",
-                            showline=False,      
-                            zeroline=False,      
-                            ticks="",            
-                            showticklabels=True,
-                            tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
-                            tickfont=dict(color=COLORS['muted'], size=10),
-                            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
-                        ),
-                        yaxis=dict(
-                            gridcolor='rgba(128,128,128,0.1)', # 網格線調得更淡
-                            range=[y_min - padding, y_max + padding],
-                            fixedrange=True,
-                            tickformat=".0f",
-                            showline=False,
-                            zeroline=False,
-                            ticks="",
-                            tickfont=dict(color=COLORS['muted'], size=10)
-                        ),
-                        dragmode=False,
-                        hovermode="x unified" # 統一 X 軸觸發，視覺感最強
-                    )
+            fig_idx.update_layout(
+                template="none", 
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                height=450, 
+                margin=dict(t=20, b=40, l=20, r=20),
+                # --- 精化懸停標籤 (讓方框更高級) ---
+                hoverlabel=dict(
+                    bgcolor="rgba(30, 30, 30, 0.9)", # 深色半透明底，質感更佳
+                    font_size=13,
+                    font_color=COLORS['gold'],       # 金色文字
+                    font_family="Josefin Sans",      # 統一字體
+                    bordercolor=COLORS['gold'],      # 金色邊框
+                    namelength=-1                    # 顯示完整名稱
+                ),
+                # ---------------------------
+                xaxis=dict(
+                    showgrid=False, 
+                    fixedrange=True,
+                    showspikes=True,
+                    spikecolor=COLORS['gold'],       # 虛線改用金色，呼應主題
+                    spikethickness=1,
+                    spikedash="dash",                # 點狀線改為短虛線，更專業
+                    spikemode="across",
+                    showline=False,      
+                    zeroline=False,      
+                    ticks="",            
+                    showticklabels=True,
+                    tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
+                    tickfont=dict(color=COLORS['muted'], size=10),
+                    rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
+                ),
+                yaxis=dict(
+                    gridcolor='rgba(128,128,128,0.1)', # 網格線調得更淡
+                    range=[y_min - padding, y_max + padding],
+                    fixedrange=True,
+                    tickformat=".0f",
+                    showline=False,
+                    zeroline=False,
+                    ticks="",
+                    tickfont=dict(color=COLORS['muted'], size=10)
+                ),
+                dragmode=False,
+                hovermode="x unified" # 統一 X 軸觸發，視覺感最強
+            )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
     with col2: # 貢獻度圖表
         logo_imgs = [dict(
