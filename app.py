@@ -42,14 +42,13 @@ st.markdown(f"""
         padding-top: 1.5rem;
     }}
 
-    /* --- 重大修正：強制時間軸 (Timeline) 單行顯示並可橫向滑動 --- */
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; /* Firefox 隱藏捲軸 */
+        scrollbar-width: none; 
     }}
     div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
-        display: none; /* Chrome/Safari 隱藏捲軸 */
+        display: none; 
     }}
     div[data-testid="stSegmentedControl"] > div {{
         flex-wrap: nowrap !important;
@@ -73,9 +72,13 @@ def fetch_data(p):
     interval = "1m" if p == "1d" else "1d"
     data = yf.download(all_symbols, period=p, interval=interval, progress=False, auto_adjust=True)
     if data.empty: return pd.DataFrame()
+    
     df = data['Close'] if 'Close' in data.columns else data
-    if p == "1d" and df.index.tz is not None:
-        df.index = df.index.tz_convert('America/New_York').tz_localize(None)
+    
+    # 確保 1D 數據對標美國東部時間 (New York)
+    if p == "1d":
+        if df.index.tz is not None:
+            df.index = df.index.tz_convert('America/New_York').tz_localize(None)
     return df.ffill().dropna()
 
 # --- 3. SIDEBAR ---
@@ -93,7 +96,7 @@ with st.sidebar:
 # --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
 
-# 修正：移除 YTD，將 5Y 改為 2Y
+# 移除 YTD，5Y 改為 2Y
 period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "1Y": "1y", "2Y": "2y", "MAX": "max"}
 selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
 
@@ -145,14 +148,15 @@ try:
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
         height=380, 
-        margin=dict(t=20, b=40, l=50, r=10), # 保留修正後的 l=50，避免 Y 軸數值被裁切
+        margin=dict(t=20, b=40, l=50, r=10), 
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
             showgrid=False, fixedrange=True, showspikes=True,
             spikecolor="#FF3333", spikethickness=1,
-            tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
+            # 修正：判斷大寫 "1D" 顯示時間
+            tickformat="%H:%M" if selected_label == "1D" else "%m-%d",
             tickfont=dict(color=COLORS['muted'], size=10),
-            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
+            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
         ),
         yaxis=dict(
             gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding],
@@ -165,14 +169,12 @@ try:
     st.write("") 
 
     # --- 圖二：貢獻度圖 ---
-    
-    # 調整：計算數據範圍並擴大左右邊界 (從 0.25 提高到 0.5)
+    # 增加 X 軸左右留白空間 (0.5)
     val_min, val_max = row.min(), row.max()
     val_range = val_max - val_min if val_max != val_min else 10
     dynamic_x_min = val_min - (val_range * 0.5)
     dynamic_x_max = val_max + (val_range * 0.5)
 
-    # 僅保留 Logo 設定
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
@@ -192,15 +194,13 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=60, r=60, t=50, b=40), # 稍微增加右邊界 r 到 60，避免數值文字被切到
+        margin=dict(l=60, r=60, t=50, b=40), 
         images=logo_imgs,
         annotations=[],                       
         yaxis=dict(showticklabels=False, fixedrange=True), 
         xaxis=dict(
-            showgrid=True, 
-            gridcolor='rgba(128,128,128,0.05)', 
-            fixedrange=True,
-            range=[dynamic_x_min, dynamic_x_max] # 強制套用擴大後的範圍
+            showgrid=True, gridcolor='rgba(128,128,128,0.05)', 
+            fixedrange=True, range=[dynamic_x_min, dynamic_x_max]
         ),
         title=dict(
             text=f"CONTRIBUTION ({selected_label})", 
