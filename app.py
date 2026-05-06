@@ -162,17 +162,14 @@ try:
 
     st.write("") 
 
-    # --- 圖二：貢獻度圖 (僅顯示 Logo 版本) ---
+    # --- 圖二：貢獻度圖 (修正定義錯誤版本) ---
     
-    # 1. 移除 ticker_labels (公司名稱文字)
-    
-    # 2. 修正 Logo 位置：將 x 設為 0 並將 xanchor 設為 "right"，讓 Logo 貼在 Y 軸左側
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=-0.01,          # 距離 Y 軸極小間距
+        x=-0.01,          
         y=i,
-        sizex=0.05, sizey=0.6, # 稍微放大 Logo 使其更清晰
+        sizex=0.05, sizey=0.6, 
         xanchor="right", yanchor="middle", sizing="contain", layer="above"
     ) for i, t in enumerate(row.index)]
 
@@ -186,9 +183,10 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=60, r=40, t=50, b=40), # 縮小左側邊界 (從 110 降到 60)，因為不再需要容納文字
+        margin=dict(l=60, r=40, t=50, b=40), 
         images=logo_imgs,
-        annotations=[],                       # 清空 annotations
+        # 關鍵修正：直接移除 annotations 屬性或設為空列表，避免 NameError
+        annotations=[],                       
         yaxis=dict(showticklabels=False, fixedrange=True), 
         xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
         title=dict(
