@@ -120,25 +120,24 @@ try:
         )
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    with col2: # 個股貢獻度 - 終極穩定版（不依賴外部墊底圖）
+    with col2: # 個股貢獻度 - 修正 Shape 屬性版本
             logo_imgs = []
-            shapes = [] # 用於存放內建圖形墊底
+            shapes = [] 
             
             for ticker in row.index:
                 domain = DOMAIN_MAP.get(ticker, "google.com")
                 
-                # 針對 MU 繪製內建白色圓形墊底
+                # 針對 MU 繪製白色圓形墊底
                 if ticker == "MU":
+                    # 設定圓形的中心與上下偏移量
+                    # 在 yref="y" 下，y0/y1 使用 ticker 名稱作為座標中心
                     shapes.append(dict(
                         type="circle",
                         xref="paper", yref="y",
-                        x0=-0.155, x1=-0.085, # 調整水平範圍以對準 Logo
-                        y0=ticker, y1=ticker,
+                        x0=-0.15, x1=-0.09, # 水平位置對齊 Logo (x=-0.12 為中心)
+                        y0=ticker, y1=ticker, # 初始中心點
                         fillcolor="white",
                         line_color="white",
-                        xsizemode="scaled", ysizemode="pixel",
-                        yanchor=ticker,
-                        ysize=24, # 圓形大小
                         layer="below"
                     ))
     
@@ -165,7 +164,7 @@ try:
                 height=450, 
                 margin=dict(l=140, r=60, t=50, b=20),
                 images=logo_imgs,
-                shapes=shapes, # 插入內建圖形
+                shapes=shapes, 
                 yaxis=dict(
                     tickfont=dict(size=11, color=COLORS['fg']),
                     ticksuffix="      ", 
