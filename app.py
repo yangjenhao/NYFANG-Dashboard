@@ -39,10 +39,20 @@ DOMAIN_MAP = {
 @st.cache_data(ttl=60)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
+    
+    # 修正邏輯：針對 5D，抓取 10 天數據以確保涵蓋最新交易日 (如 5/6)
+    fetch_p = "10d" if p == "5d" else p
     interval = "1m" if p == "1d" else "1d"
-    data = yf.download(all_symbols, period=p, interval=interval, progress=False, auto_adjust=False)['Close']
+    
+    data = yf.download(all_symbols, period=fetch_p, interval=interval, progress=False, auto_adjust=False)['Close']
+    
+    # 如果是 5D，過濾掉缺失值後取最後 5 筆
+    if p == "5d":
+        data = data.ffill().dropna().tail(5)
+        
     if p == "1d" and data.index.tz is not None:
         data.index = data.index.tz_convert('America/New_York').tz_localize(None)
+        
     return data.ffill().dropna()
 
 # --- 3. SIDEBAR TERMINAL ---
