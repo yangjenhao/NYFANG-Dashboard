@@ -42,14 +42,14 @@ st.markdown(f"""
         padding-top: 1.5rem;
     }}
 
-    /* --- 重大修正：強制時間軸 (Timeline) 單行顯示並可橫向滑動 --- */
+    /* --- 強制時間軸 (Timeline) 單行顯示並可橫向滑動 --- */
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; /* Firefox 隱藏捲軸 */
+        scrollbar-width: none; 
     }}
     div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
-        display: none; /* Chrome/Safari 隱藏捲軸 */
+        display: none; 
     }}
     div[data-testid="stSegmentedControl"] > div {{
         flex-wrap: nowrap !important;
@@ -111,7 +111,7 @@ try:
     metrics_html = f"""
     <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VALUE</div>
+            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:66x;">VALUE</div>
             <div style="font-size:1.2rem; font-weight:bold; color:white;">{end:,.2f}</div>
         </div>
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
@@ -144,7 +144,7 @@ try:
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
         height=380, 
-        margin=dict(t=20, b=40, l=50, r=10), # 修正：將 l 從 10 改為 50，避免 Y 軸數值被裁切
+        margin=dict(t=20, b=40, l=50, r=10), # 維持先前修正，防止 Y 軸數值裁切
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
             showgrid=False, fixedrange=True, showspikes=True,
@@ -185,7 +185,7 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=60, r=40, t=50, b=40), 
+        margin=dict(l=100, r=80, t=50, b=40), # 修正：調大左右邊距給予更多空間
         images=logo_imgs,
         annotations=[],                       
         yaxis=dict(showticklabels=False, fixedrange=True), 
