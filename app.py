@@ -2,7 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- 1. DESIGN TOKENS ---
 COLORS = {
@@ -37,35 +37,21 @@ INDEX_SYMBOL = "^NYFANG"
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
-    # yfinance 會自動根據 period 決定 interval (如 1d 會給每分鐘資料)
-    return yf.download(all_symbols, period=p, progress=False, auto_adjust=False)['Close']
+    # 【關鍵修復】：如果選 TODAY (1d)，改抓 2d 以獲得基準點
+    fetch_p = "2d" if p == "1d" else p
+    data = yf.download(all_symbols, period=fetch_p, progress=False, auto_adjust=False)['Close']
+    return data
 
 # --- 4. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2>The Terminal</h2>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # --- 新增 TODAY 與 V DAYS ---
-    period_options = [
-        ('TODAY', '1d'), 
-        ('V DAYS', '5d'), 
-        ('I MONTH', '1mo'), 
-        ('III MONTHS', '3mo'), 
-        ('VI MONTHS', '6mo'), 
-        ('I YEAR', '1y'), 
-        ('V YEARS', '5y'), 
-        ('YTD', 'ytd')
-    ]
-    
-    period_label, period_val = st.selectbox(
-        "TIMELINE", 
-        options=period_options, 
-        format_func=lambda x: x[0],
-        index=2  # 預設選中 I MONTH
-    )
+    period_options = [('TODAY', '1d'), ('V DAYS', '5d'), ('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), ('I YEAR', '1y'), ('V YEARS', '5y'), ('YTD', 'ytd')]
+    period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0], index=2)
     
     try:
-        # 固定用 1mo 來抓取最新市場日期，避免 1d 模式下找不到昨日數據
+        # 始終以較長週期決定最新交易日
         latest_market_date = fetch_data("1mo").index[-1].date()
     except:
         latest_market_date = datetime.now().date()
@@ -89,7 +75,7 @@ try:
     idx_series = raw_data[INDEX_SYMBOL]
     stock_prices = raw_data[OFFICIAL_TICKERS]
     
-    # 績效歸因計算 (計算日變動)
+    # 績效歸因計算
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change()
     
@@ -100,63 +86,75 @@ try:
         raw_impact = r * 0.1
         impact_sum = raw_impact.sum()
         point_contrib_df.loc[date] = raw_impact * (actual_pts / impact_sum) if abs(impact_sum) > 1e-6 else 0
-
-    # 處理選定日期的數據顯示
-    target_ts = pd.to_datetime(st.session_state.target_date)
-    valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
-    plot_date = valid_dates[-1] if not valid_dates.empty else point_contrib_df.index[-1]
-
-    # UI 呈現
-    st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
     
-    actual_idx_change = idx_diff.loc[plot_date]
-    shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
-    
-    c1, c2, c3 = st.columns(3)
-    with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">INDEX VALUE</p><h3>{idx_series.loc[plot_date]:,.2f}</h3></div>', unsafe_allow_html=True)
-    with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">POINT SHIFT</p><h3 style="color:{shift_color};">{actual_idx_change:+.2f}</h3></div>', unsafe_allow_html=True)
-    
-    # 避免分母為 0
-    prev_idx = idx_series.shift(1).loc[plot_date]
-    variance = ((idx_series.loc[plot_date] / prev_idx) - 1) * 100 if prev_idx else 0
-    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VARIANCE</p><h3 style="color:{shift_color};">{variance:+.2f}%</h3></div>', unsafe_allow_html=True)
+    # 【關鍵修復】：移除因計算產生的首行 NaN
+    point_contrib_df = point_contrib_df.dropna()
+    idx_diff = idx_diff.dropna()
 
-    col1, col2 = st.columns(2)
-    with col1:
-        # Historical Trend (含有 Hover 數值顯示)
-        fig_idx = go.Figure()
-        fig_idx.add_trace(go.Scatter(
-            x=idx_series.index, y=idx_series.values,
-            line=dict(color=COLORS['gold'], width=2),
-            hovertemplate="<b>Date: %{x}</b><br>Value: %{y:,.2f}<extra></extra>"
-        ))
-        fig_idx.add_vline(x=plot_date, line_width=1, line_dash="dash", line_color=COLORS['fg'])
+    # 處理時間比對 (針對 1d/5d 的 Timestamp 與 Departure Date 比對)
+    target_dt = pd.to_datetime(st.session_state.target_date)
+    
+    # 找出所有小於等於選定日期的資料列
+    # 如果是 1d 資料，時間戳會帶有時分秒，我們取日期部分比對
+    mask = point_contrib_df.index.date <= target_dt.date()
+    valid_data = point_contrib_df[mask]
+    
+    if not valid_data.empty:
+        plot_date = valid_data.index[-1]
+        actual_idx_change = idx_diff.loc[plot_date]
+        current_val = idx_series.loc[plot_date]
         
-        fig_idx.update_layout(
-            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=0, r=0, t=30, b=0), height=400,
-            hovermode="x unified",
-            xaxis=dict(showgrid=False, color=COLORS['muted']),
-            yaxis=dict(showgrid=True, gridcolor='#333', color=COLORS['muted']),
-            title=dict(text="HISTORICAL TREND", font=dict(color=COLORS['gold'], size=14))
-        )
-        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+        # 取得前一筆有效數據計算 Variance
+        prev_idx_loc = idx_series.index.get_loc(plot_date)
+        prev_val = idx_series.iloc[prev_idx_loc - 1] if prev_idx_loc > 0 else current_val
+        variance = ((current_val / prev_val) - 1) * 100 if prev_val != 0 else 0
 
-    with col2:
-        # Contribution Bar Chart
-        row = point_contrib_df.loc[plot_date].apply(pd.to_numeric).sort_values(ascending=False)
-        fig_bar = go.Figure(go.Bar(
-            x=row.index, y=row.values,
-            marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-            text=row.values.round(2), textposition='auto'
-        ))
-        fig_bar.update_layout(
-            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=0, r=0, t=30, b=0), height=400,
-            xaxis=dict(color=COLORS['muted']), yaxis=dict(color=COLORS['muted']),
-            title=dict(text=f"CONTRIBUTION ({plot_date.strftime('%Y-%m-%d')})", font=dict(color=COLORS['gold'], size=14))
-        )
-        st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+        # UI 呈現
+        st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
+        shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
+        
+        c1, c2, c3 = st.columns(3)
+        with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">INDEX VALUE</p><h3>{current_val:,.2f}</h3></div>', unsafe_allow_html=True)
+        with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">POINT SHIFT</p><h3 style="color:{shift_color};">{actual_idx_change:+.2f}</h3></div>', unsafe_allow_html=True)
+        with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VARIANCE</p><h3 style="color:{shift_color};">{variance:+.2f}%</h3></div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_idx = go.Figure()
+            # TODAY 模式下只顯示今日的線條，不顯示背景參考的那一天
+            display_series = idx_series[idx_series.index.date == plot_date.date()] if period_val == "1d" else idx_series
+            
+            fig_idx.add_trace(go.Scatter(
+                x=display_series.index, y=display_series.values,
+                line=dict(color=COLORS['gold'], width=2),
+                hovertemplate="<b>%{x}</b><br>Value: %{y:,.2f}<extra></extra>"
+            ))
+            fig_idx.update_layout(
+                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=0, r=0, t=30, b=0), height=400,
+                hovermode="x unified",
+                xaxis=dict(showgrid=False, color=COLORS['muted']),
+                yaxis=dict(showgrid=True, gridcolor='#333', color=COLORS['muted']),
+                title=dict(text="HISTORICAL TREND", font=dict(color=COLORS['gold'], size=14))
+            )
+            st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+
+        with col2:
+            row = point_contrib_df.loc[plot_date].apply(pd.to_numeric).sort_values(ascending=False)
+            fig_bar = go.Figure(go.Bar(
+                x=row.index, y=row.values,
+                marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+                text=row.values.round(2), textposition='auto'
+            ))
+            fig_bar.update_layout(
+                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=0, r=0, t=30, b=0), height=400,
+                xaxis=dict(color=COLORS['muted']), yaxis=dict(color=COLORS['muted']),
+                title=dict(text=f"CONTRIBUTION ({plot_date.strftime('%Y-%m-%d %H:%M')})", font=dict(color=COLORS['gold'], size=14))
+            )
+            st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+    else:
+        st.warning("NO DATA AVAILABLE FOR THE SELECTED DATE.")
             
 except Exception as e:
     st.error(f"TERMINAL OFFLINE: {e}")
