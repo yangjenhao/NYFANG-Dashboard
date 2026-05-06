@@ -3,49 +3,27 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- 1. DESIGN TOKENS (改用透明度與系統適應色) ---
+# --- 1. DESIGN TOKENS ---
 COLORS = {
-    "accent": "#D4AF37",  # 金色主題保持不變
-    "up": "#3da35d",      # 莫蘭迪綠 (淺色模式下較清晰)
-    "down": "#e05e5e",    # 莫蘭迪紅
-    "muted": "rgba(128, 128, 128, 0.6)" 
+    "bg": "#1E1E1E", 
+    "card_bg": "#262626", 
+    "fg": "#F2F0E4", 
+    "gold": "#D4AF37", 
+    "muted": "#AAAAAA", 
+    "up": "#00FF00", 
+    "down": "#FF3333"
 }
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：移除 stApp 背景硬編碼，改用 RGBA 讓卡片適應深淺模式
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
-    
-    /* 移除背景顏色強制設定，讓系統接管 */
-    .stApp {{ font-family: 'Josefin Sans', sans-serif; }}
-    
-    /* 標題金色在深淺模式下通常都表現良好 */
-    .main-title {{ 
-        font-family: 'Marcellus', serif !important; 
-        text-transform: uppercase; 
-        color: {COLORS['accent']} !important; 
-        text-align: center; 
-        font-size: 2.2rem; 
-        margin: 10px 0; 
-    }}
-    
-    /* 卡片使用 RGBA：深色模式會變深，淺色模式會變淡灰色 */
-    .metric-card {{ 
-        background-color: rgba(128, 128, 128, 0.1); 
-        border: 1px solid rgba(212, 175, 55, 0.2); 
-        padding: 15px; 
-        text-align: center; 
-        border-radius: 4px; 
-    }}
-    
-    /* 側邊欄邊界線適應化 */
-    section[data-testid="stSidebar"] {{ 
-        border-right: 1px solid rgba(128, 128, 128, 0.2); 
-    }}
-    
-    .sidebar-content {{ padding: 10px; font-size: 0.85rem; opacity: 0.7; }}
+    .stApp {{ background-color: {COLORS['bg']}; color: {COLORS['fg']}; font-family: 'Josefin Sans', sans-serif; }}
+    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; }}
+    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; border-radius: 4px; }}
+    section[data-testid="stSidebar"] {{ background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
+    .sidebar-content {{ padding: 10px; font-size: 0.85rem; color: {COLORS['muted']}; }}
     </style>
 """, unsafe_allow_html=True)
 
