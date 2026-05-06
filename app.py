@@ -127,14 +127,16 @@ try:
                             rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
                         ),
                         yaxis=dict(
-                            gridcolor='rgba(128,128,128,0.2)',
+                            gridcolor='rgba(128,128,128,0.2)', # 僅保留水平網格線
                             range=[y_min - padding, y_max + padding],
                             fixedrange=True,
                             tickformat=".0f",
-                            showline=False
-                        ),
-                        dragmode=False,
-                        hovermode="x unified"
+                            # --- 強制清理 Y 軸方向的雜線 ---
+                            showline=False,      # 關閉左側垂直軸線
+                            zeroline=False,      # 關閉 Y=0 的基準線
+                            ticks="",            # 移除 Y 軸刻度小短線
+                            # ----------------------------
+                            tickfont=dict(color=COLORS['muted'], size=10)
                     )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
