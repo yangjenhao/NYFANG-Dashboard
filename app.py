@@ -107,7 +107,7 @@ try:
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 指標卡 Flexbox 佈局 (維持原樣，完美適應手機端)
+    # 指標卡 Flexbox 佈局
     metrics_html = f"""
     <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
@@ -164,21 +164,11 @@ try:
 
     # --- 圖二：貢獻度圖 ---
     
-    # 修正重點 1：使用絕對像素偏移 (xshift)，徹底防範文字與 Logo 疊加
-    ticker_labels = [dict(
-        xref="paper", yref="y", 
-        x=0, y=i,
-        xshift=-60, # 強制將文字向左推移 60 像素，留下絕對寬度的安全空間給 Logo
-        text=f"<b>{t}</b>",
-        showarrow=False, xanchor="right", yanchor="middle",
-        font=dict(size=12, color=COLORS['muted'], family="Josefin Sans")
-    ) for i, t in enumerate(row.index)]
-
-    # 修正重點 2：將 Logo 固定在剛剛留出的 60 像素安全空間內
+    # 僅保留 Logo 設定
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=-0.01,          # 稍微離開軸線
+        x=-0.01, 
         y=i,
         sizex=0.045, sizey=0.45, 
         xanchor="right", yanchor="middle", sizing="contain", layer="above"
@@ -194,10 +184,10 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=110, r=40, t=50, b=40), # 加大左側邊界 l=110，容納 60px 的偏移與文字長度
+        margin=dict(l=60, r=40, t=50, b=40), # 邊界縮小，僅保留 Logo 空間
         images=logo_imgs,
-        annotations=ticker_labels,            # 使用 annotations 替換原生 ticktext
-        yaxis=dict(showticklabels=False, fixedrange=True), # 隱藏原生 Y 軸標籤
+        annotations=[],                       # 清空 annotations，移除公司文字標籤
+        yaxis=dict(showticklabels=False, fixedrange=True), 
         xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
         title=dict(
             text=f"CONTRIBUTION ({selected_label})", 
