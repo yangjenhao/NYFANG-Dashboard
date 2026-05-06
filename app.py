@@ -13,7 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 優化：確保指標卡在不同裝置上的對齊與換行
+# CSS 修正：加入針對 Segmented Control (Timeline) 的不換行控制
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -32,43 +32,24 @@ st.markdown(f"""
         margin: 10px 0; 
     }}
     
-    /* --- 指標卡響應式佈局：確保在不同裝置各自一排 --- */
-    .metrics-container {{
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        gap: 12px;
-        width: 100%;
-        margin-bottom: 20px;
-    }}
-    
-    .metric-card {{
-        flex: 1;
-        background-color: rgba(128, 128, 128, 0.05);
-        border: 1px solid {COLORS['gold']}22;
-        padding: 16px 5px;
-        text-align: center;
-        border-radius: 6px;
+    section[data-testid="stSidebar"] {{ 
+        background-color: #252525 !important; 
+        border-right: 1px solid rgba(128, 128, 128, 0.1); 
     }}
 
-    /* 當寬度小於 768px (一般手機/平板) 時，強制垂直排列 */
-    @media (max-width: 768px) {{
-        .metrics-container {{
-            flex-direction: column !important;
-        }}
-        .metric-card {{
-            width: 100%;
-        }}
+    .block-container {{
+        max-width: 1000px !important;
+        padding-top: 1.5rem;
     }}
 
-    /* 時間軸橫向滑動 */
+    /* --- 重大修正：強制時間軸 (Timeline) 單行顯示並可橫向滑動 --- */
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; 
+        scrollbar-width: none; /* Firefox 隱藏捲軸 */
     }}
     div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
-        display: none; 
+        display: none; /* Chrome/Safari 隱藏捲軸 */
     }}
     div[data-testid="stSegmentedControl"] > div {{
         flex-wrap: nowrap !important;
@@ -100,8 +81,14 @@ def fetch_data(p):
 # --- 3. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus; letter-spacing:2px;'>TERMINAL</h2>", unsafe_allow_html=True)
-    st.write("---")
-    st.caption("AUTHOR: Jen-Hao Yang")
+    st.markdown(f"""
+        <div style='padding:10px; font-size:0.85rem; opacity:0.8;'>
+            <p><b>AUTHOR:</b> Jen-Hao Yang</p>
+            <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
+            <hr style="opacity: 0.2;">
+            <p>STATUS: <span style="color:{COLORS['up']};">ONLINE</span></p>
+        </div>
+    """, unsafe_allow_html=True)
 
 # --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
@@ -112,6 +99,7 @@ selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()
 try:
     df = fetch_data(period_map[selected_label])
     if INDEX_SYMBOL not in df.columns:
+        st.error(f"數據缺失：找不到 {INDEX_SYMBOL}")
         st.stop()
 
     idx_series = df[INDEX_SYMBOL]
@@ -119,18 +107,18 @@ try:
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 響應式指標卡佈局
+    # 指標卡 Flexbox 佈局
     metrics_html = f"""
-    <div class="metrics-container">
-        <div class="metric-card">
+    <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
             <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VALUE</div>
             <div style="font-size:1.2rem; font-weight:bold; color:white;">{end:,.2f}</div>
         </div>
-        <div class="metric-card">
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
             <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">SHIFT</div>
             <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{total_change:+.2f}</div>
         </div>
-        <div class="metric-card">
+        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
             <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VAR %</div>
             <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{(total_change/start*100):+.2f}%</div>
         </div>
@@ -152,37 +140,36 @@ try:
         line=dict(color=COLORS['gold'], width=2, shape='spline'),
         fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)', hoverinfo="x+y"
     ))
+    
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=380, margin=dict(t=20, b=40, l=50, r=10),
-        xaxis=dict(showgrid=False, tickformat="%H:%M" if selected_label == "1d" else "%m-%d", tickfont=dict(color=COLORS['muted'], size=10)),
-        yaxis=dict(gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding], tickformat=".0f", tickfont=dict(color=COLORS['muted'], size=10)),
+        height=380, 
+        margin=dict(t=20, b=40, l=50, r=10), # 修正：將 l 從 10 改為 50，避免 Y 軸數值被裁切
+        hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
+        xaxis=dict(
+            showgrid=False, fixedrange=True, showspikes=True,
+            spikecolor="#FF3333", spikethickness=1,
+            tickformat="%H:%M" if selected_label == "1d" else "%m-%d",
+            tickfont=dict(color=COLORS['muted'], size=10),
+            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1d" else None
+        ),
+        yaxis=dict(
+            gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding],
+            fixedrange=True, tickformat=".0f", tickfont=dict(color=COLORS['muted'], size=10)
+        ),
         hovermode="x unified"
     )
     st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    # --- 圖二：貢獻度圖 (修正對齊與 XSHIFT 錯誤) ---
+    st.write("") 
+
+    # --- 圖二：貢獻度圖 ---
     
-    val_min, val_max = row.min(), row.max()
-    val_range = val_max - val_min if val_max != val_min else 10
-    dynamic_x_min = val_min - (val_range * 0.35)
-    dynamic_x_max = val_max + (val_range * 0.25)
-
-    # 1. 股票代號標籤 (Annotations 支持 xshift)
-    ticker_labels = [dict(
-        xref="paper", yref="y", 
-        x=0, y=i,
-        xshift=-35,      # 文字向左移動 35 像素
-        text=f"<b>{t}</b>",
-        showarrow=False, xanchor="right", yanchor="middle",
-        font=dict(size=12, color=COLORS['muted'])
-    ) for i, t in enumerate(row.index)]
-
-    # 2. Logo 圖標 (修正：使用 x 坐標而非 xshift)
+    # 僅保留 Logo 設定
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
-        x=-0.08,          # 使用相對坐標定位在文字左側
+        x=-0.01, 
         y=i,
         sizex=0.045, sizey=0.45, 
         xanchor="right", yanchor="middle", sizing="contain", layer="above"
@@ -198,12 +185,16 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=120, r=60, t=50, b=40), # 加大左側邊距 l=120 以容納 Logo 與文字
+        margin=dict(l=60, r=40, t=50, b=40), 
         images=logo_imgs,
-        annotations=ticker_labels,
+        annotations=[],                       
         yaxis=dict(showticklabels=False, fixedrange=True), 
-        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True, range=[dynamic_x_min, dynamic_x_max]),
-        title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['gold'], size=16), x=0.5, xanchor="center"),
+        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
+        title=dict(
+            text=f"CONTRIBUTION ({selected_label})", 
+            font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
+            x=0.5, xanchor="center"
+        ),
         bargap=0.3 
     )
     st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
