@@ -3,67 +3,47 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- 1. DESIGN TOKENS (修正適應性) ---
+# --- 1. DESIGN TOKENS ---
 COLORS = {
-    "accent": "#D4AF37", 
-    "up": "#3da35d",      
-    "down": "#e05e5e",    
-    "muted": "rgba(128, 128, 128, 0.6)" 
+    "bg": "#1E1E1E", 
+    "card_bg": "#262626", 
+    "fg": "#F2F0E4", 
+    "gold": "#D4AF37", 
+    "muted": "#AAAAAA", 
+    "up": "#00FF00", 
+    "down": "#FF3333"
 }
 
-# --- 2. CSS 修正 (支援 Light Mode) ---
+st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
+
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
-    .stApp {{ font-family: 'Josefin Sans', sans-serif; }}
-    .main-title {{ 
-        font-family: 'Marcellus', serif !important; 
-        text-transform: uppercase; 
-        color: {COLORS['accent']} !important; 
-        text-align: center; font-size: 2.2rem; margin: 10px 0; 
-    }}
-    .metric-card {{ 
-        background-color: rgba(128, 128, 128, 0.08); 
-        border: 1px solid rgba(212, 175, 55, 0.2); 
-        padding: 15px; text-align: center; border-radius: 4px; 
-    }}
-    section[data-testid="stSidebar"] {{ border-right: 1px solid rgba(128, 128, 128, 0.1); }}
+    .stApp {{ background-color: {COLORS['bg']}; color: {COLORS['fg']}; font-family: 'Josefin Sans', sans-serif; }}
+    .main-title {{ font-family: 'Marcellus', serif !important; text-transform: uppercase; color: {COLORS['gold']} !important; text-align: center; font-size: 2.2rem; margin: 10px 0; }}
+    .metric-card {{ background-color: {COLORS['card_bg']}; border: 1px solid {COLORS['gold']}33; padding: 15px; text-align: center; border-radius: 4px; }}
+    section[data-testid="stSidebar"] {{ background-color: {COLORS['card_bg']}; border-right: 1px solid {COLORS['gold']}44; }}
+    .sidebar-content {{ padding: 10px; font-size: 0.85rem; color: {COLORS['muted']}; }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. DATA FETCH (解決 KeyError) ---
+# --- 2. DATA LOGIC ---
+OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
+INDEX_SYMBOL = "^NYFANG"
+DOMAIN_MAP = {
+    "META": "meta.com", "AAPL": "apple.com", "AMZN": "amazon.com", "NFLX": "netflix.com", 
+    "MSFT": "microsoft.com", "GOOGL": "google.com", "MU": "micron.com", 
+    "NVDA": "nvidia.com", "PLTR": "palantir.com", "AVGO": "broadcom.com"
+}
+
 @st.cache_data(ttl=60)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     interval = "1m" if p == "1d" else "1d"
-    # 修正：確保只抓取 Close 欄位，並處理可能的 MultiIndex 錯誤
-    raw_data = yf.download(all_symbols, period=p, interval=interval, progress=False, auto_adjust=True)
-    
-    if raw_data.empty:
-        return pd.DataFrame()
-    
-    # yfinance 下載多個 ticker 會產生 MultiIndex，我們只取 Close
-    if 'Close' in raw_data.columns:
-        df = raw_data['Close']
-    else:
-        df = raw_data # 如果 auto_adjust=True 有時直接就是價格
-        
-    return df.ffill().dropna()
-
-# --- 4. UI 邏輯與錯誤攔截 ---
-try:
-    df = fetch_data(period_map[selected_label])
-    
-    # 檢查關鍵欄位是否存在，防止 KeyError
-    if INDEX_SYMBOL not in df.columns:
-        st.error(f"目前抓不到 {INDEX_SYMBOL} 的資料，請稍後再試。")
-    else:
-        idx_series = df[INDEX_SYMBOL]
-        # ... (後續計算邏輯保持不變)
-        
-        # Plotly 圖表修正：將 template 改為 "none" 讓它自動適應 Light/Dark Mode
-        # fig_idx.update_layout(template="none", ...)
-        # fig_bar.update_layout(template="none", ...)
+    data = yf.download(all_symbols, period=p, interval=interval, progress=False, auto_adjust=False)['Close']
+    if p == "1d" and data.index.tz is not None:
+        data.index = data.index.tz_convert('America/New_York').tz_localize(None)
+    return data.ffill().dropna()
 
 # --- 3. SIDEBAR TERMINAL ---
 with st.sidebar:
