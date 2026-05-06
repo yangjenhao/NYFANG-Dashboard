@@ -183,15 +183,14 @@ try:
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2: # 貢獻度圖表
-        # 1. 統一對齊邏輯：使用 left 錨點並固定在負位移處
-        # sizex 稍微調小 (0.05) 以適應手機窄螢幕
+        # 1. 安全對齊：x=-0.05 確保圖標始終在畫布內，且緊貼文字左側
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.25,          # 固定在左側預留空間
+            x=-0.05,          # 修正：縮小負值，確保 Logo 留在畫面中
             y=i,
-            sizex=0.05, sizey=0.5, 
-            xanchor="left",   
+            sizex=0.06, sizey=0.6, 
+            xanchor="right",  # 以圖標右側對齊文字
             yanchor="middle", 
             sizing="contain", 
             layer="above"
@@ -213,18 +212,19 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 2. 邊距微調：手機版建議 140-150 左右即可，避免過度推擠
-            margin=dict(l=140, r=40, t=50, b=20), 
+            # 2. 彈性邊距：l=100-120 即可，避免過大導致手機版壓縮
+            margin=dict(l=100, r=40, t=50, b=20), 
             images=logo_imgs,
             yaxis=dict(
                 showgrid=False,
                 showline=False,
                 zeroline=False,
                 fixedrange=True,
-                automargin=False,
+                # 3. 關鍵：用自動邊距配合 ticksuffix，保持文字與 Logo 聯動
+                automargin=True, 
                 ticksuffix=" ", 
                 tickfont=dict(
-                    size=11, # 稍微縮小字體以適應手機
+                    size=12, 
                     color=COLORS['muted'], 
                     family="Josefin Sans"
                 )
@@ -240,7 +240,7 @@ try:
                 font=dict(color=COLORS['gold'], size=14, family="Josefin Sans"),
                 x=0.5, xanchor="center"
             ),
-            bargap=0.4 # 增加條形圖間距，減少視覺擁擠
+            bargap=0.35 
         )
         st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 except Exception as e:
