@@ -19,20 +19,29 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. DATA LOGIC (時區修正版) ---
+# --- 3. DATA LOGIC (修復 tz-naive 錯誤) ---
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
 
 @st.cache_data(ttl=30, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
-    # TODAY 模式抓 1m，其餘抓 1d
-    fetch_p, interval = ("2d", "1m") if p == "1d" else (("10d", "1d") if p == "5d" else (p, "1d"))
+    is_intraday = (p == "1d")
+    fetch_p, interval = ("2d", "1m") if is_intraday else (("10d", "1d") if p == "5d" else (p, "1d"))
     
     data = yf.download(all_symbols, period=fetch_p, interval=interval, progress=False, auto_adjust=False)['Close']
     
-    # 【核心修正】強制轉換為美東時間並移除時區資訊以便顯示
-    data.index = data.index.tz_convert('America/New_York').tz_localize(None)
+    # 【核心修復】分流處理時區
+    if is_intraday:
+        # 1m 數據通常自帶時區，先轉美東再去除標記以供顯示
+        if data.index.tz is not None:
+            data.index = data.index.tz_convert('America/New_York').tz_localize(None)
+        else:
+            data.index = data.index.tz_localize('UTC').tz_convert('America/New_York').tz_localize(None)
+    else:
+        # 1d 數據為 tz-naive，直接移除可能存在的時間部分即可
+        data.index = pd.to_datetime(data.index).normalize()
+        
     return data.ffill().dropna()
 
 # --- 4. SIDEBAR ---
@@ -59,7 +68,6 @@ try:
         loc_start = idx_series.index.get_loc(day_data.index[0])
         ref_val = idx_series.iloc[loc_start-1] if loc_start > 0 else day_data.iloc[0]
         
-        # 即時累積計算
         current_idx_val = idx_series.loc[plot_time]
         total_pts_change = current_idx_val - ref_val
         
@@ -70,7 +78,7 @@ try:
         total_impact = raw_impacts.sum()
         cum_contrib = (raw_impacts * (total_pts_change / total_impact)) if abs(total_impact) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)
 
-        # UI 顯示
+        # UI
         st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
         shift_col = COLORS['up'] if total_pts_change >= 0 else COLORS['down']
         
@@ -81,16 +89,13 @@ try:
 
         col1, col2 = st.columns(2)
         with col1:
-            # 趨勢圖：確保顯示 09:30 開始
             show_df = day_data if period_val == '1d' else idx_series
             fig_idx = go.Figure(go.Scatter(x=show_df.index, y=show_df.values, line=dict(color=COLORS['gold'], width=2)))
             
-            xaxis_cfg = dict(showgrid=False, color=COLORS['muted'], tickformat="%H:%M")
+            xaxis_cfg = dict(showgrid=False, color=COLORS['muted'])
             if period_val == '1d':
-                # 嚴格鎖定美東開收盤時間軸範圍
-                start_range = plot_time.replace(hour=9, minute=30)
-                end_range = plot_time.replace(hour=16, minute=0)
-                xaxis_cfg['range'] = [start_range, end_range]
+                xaxis_cfg['tickformat'] = "%H:%M"
+                xaxis_cfg['range'] = [plot_time.replace(hour=9, minute=30), plot_time.replace(hour=16, minute=0)]
             
             fig_idx.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=30, b=0), height=400, xaxis=xaxis_cfg)
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
@@ -98,9 +103,10 @@ try:
         with col2:
             row = cum_contrib.sort_values(ascending=False)
             fig_bar = go.Figure(go.Bar(x=row.index, y=row.values, marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values], text=row.values.round(2), textposition='auto'))
-            fig_bar.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=30, b=0), height=400, title=dict(text=f"REAL-TIME CONTRIBUTION ({plot_time.strftime('%H:%M')} EST)", font=dict(color=COLORS['gold'], size=14)))
+            time_label = plot_time.strftime('%H:%M') if period_val == '1d' else plot_time.strftime('%Y-%m-%d')
+            fig_bar.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=30, b=0), height=400, title=dict(text=f"CONTRIBUTION ({time_label})", font=dict(color=COLORS['gold'], size=14)))
             st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
     else:
-        st.warning("NO DATA: CHECK IF MARKET IS OPEN (9:30 AM EST).")
+        st.warning("NO DATA FOUND FOR THIS PERIOD.")
 except Exception as e:
     st.error(f"TERMINAL ERROR: {str(e)}")
