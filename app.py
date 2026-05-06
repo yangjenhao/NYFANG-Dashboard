@@ -13,7 +13,7 @@ COLORS = {
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
 
-# CSS 修正：加入針對 Segmented Control (Timeline) 的不換行控制
+# CSS 修正：處理時間軸 (Timeline) 的顯示與全域樣式
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
@@ -42,7 +42,7 @@ st.markdown(f"""
         padding-top: 1.5rem;
     }}
 
-    /* --- 強制時間軸 (Timeline) 單行顯示並可橫向滑動 --- */
+    /* 強制時間軸單行顯示並可橫向滑動 */
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
@@ -107,11 +107,11 @@ try:
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 指標卡 Flexbox 佈局
+    # 指標卡
     metrics_html = f"""
     <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:66x;">VALUE</div>
+            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VALUE</div>
             <div style="font-size:1.2rem; font-weight:bold; color:white;">{end:,.2f}</div>
         </div>
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
@@ -126,6 +126,7 @@ try:
     """
     st.markdown(metrics_html, unsafe_allow_html=True)
 
+    # 計算貢獻度
     returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
     raw_impact = returns * 0.1
     impact_sum = raw_impact.sum()
@@ -144,7 +145,7 @@ try:
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
         height=380, 
-        margin=dict(t=20, b=40, l=50, r=10), # 維持先前修正，防止 Y 軸數值裁切
+        margin=dict(t=20, b=40, l=50, r=10), # 保持 l=50 確保 Y 軸數字完整
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
             showgrid=False, fixedrange=True, showspikes=True,
@@ -165,7 +166,7 @@ try:
 
     # --- 圖二：貢獻度圖 ---
     
-    # 僅保留 Logo 設定
+    # 僅保留 Logo 的設定
     logo_imgs = [dict(
         source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
         xref="paper", yref="y", 
@@ -185,11 +186,16 @@ try:
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         height=550, 
-        margin=dict(l=100, r=80, t=50, b=40), # 修正：調大左右邊距給予更多空間
+        margin=dict(l=100, r=80, t=50, b=40), 
         images=logo_imgs,
-        annotations=[],                       
+        annotations=[],                       # 不顯示文字名稱
         yaxis=dict(showticklabels=False, fixedrange=True), 
-        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
+        xaxis=dict(
+            showgrid=True, 
+            gridcolor='rgba(128,128,128,0.05)', 
+            fixedrange=True,
+            range=[-60, 80]                    # 修正：手動指定更寬的刻度範圍
+        ),
         title=dict(
             text=f"CONTRIBUTION ({selected_label})", 
             font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
