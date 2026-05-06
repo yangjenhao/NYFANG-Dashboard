@@ -29,19 +29,15 @@ INDEX_SYMBOL = "^NYFANG"
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     
-    if p == "5d":
-        # 抓取 1 個月數據確保緩衝充足
-        raw = yf.download(all_symbols, period="1mo", interval="1d", progress=False, auto_adjust=False)['Close']
-        raw.index = pd.to_datetime(raw.index).normalize()
-        # 排除所有 NaN 後取最後 5 個交易日
-        data = raw.dropna(subset=[INDEX_SYMBOL]).tail(5)
-    elif p == "1d":
-        # 1D 模式抓取最近 2 天的分鐘線以獲取昨日收盤至今的走勢
-        data = yf.download(all_symbols, period="2d", interval="1m", progress=False, auto_adjust=False)['Close']
+    if p == "1d":
+        # 抓取 1d 數據，僅取當天分鐘線
+        data = yf.download(all_symbols, period="1d", interval="1m", progress=False, auto_adjust=False)['Close']
         if data.index.tz is not None: 
             data.index = data.index.tz_convert('America/New_York').tz_localize(None)
-        else: 
-            data.index = data.index.tz_localize('UTC').tz_convert('America/New_York').tz_localize(None)
+    elif p == "5d":
+        raw = yf.download(all_symbols, period="1mo", interval="1d", progress=False, auto_adjust=False)['Close']
+        raw.index = pd.to_datetime(raw.index).normalize()
+        data = raw.dropna(subset=[INDEX_SYMBOL]).tail(5)
     else:
         data = yf.download(all_symbols, period=p, interval="1d", progress=False, auto_adjust=False)['Close']
         data.index = pd.to_datetime(data.index).normalize()
@@ -56,7 +52,7 @@ with st.sidebar:
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
             <p><b>SYSTEM:</b> NYSE FANG+ TERMINAL</p>
             <hr style="border-color:{COLORS['gold']}22;">
-            <p style="font-size:0.8rem;">Current Date: {datetime.now().strftime('%Y-%m-%d')}<br>Live Session Sync: Enabled.</p>
+            <p style="font-size:0.8rem;">Trading Hours Filter: ACTIVE.<br>Removing non-market sessions.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -95,7 +91,8 @@ try:
         y_min, y_max = idx_series.min(), idx_series.max()
         y_padding = (y_max - y_min) * 0.05 if (y_max - y_min) > 0 else 10
         
-        x_axis_data = df.index.strftime('%m/%d') if period_val != '1d' else df.index
+        # 1D 模式顯示完整時間，其餘顯示日期
+        x_axis_data = df.index if period_val == '1d' else df.index.strftime('%m/%d')
 
         fig_idx = go.Figure(go.Scatter(
             x=x_axis_data, y=df[INDEX_SYMBOL], 
@@ -104,10 +101,25 @@ try:
             hoverinfo="x+y"
         ))
         
+        # 【優化關鍵】針對 1D 模式過濾非交易時段的長直線
+        xaxis_params = dict(
+            type='date' if period_val == '1d' else 'category',
+            showgrid=False, color=COLORS['muted'], fixedrange=True, nticks=5
+        )
+        
+        if period_val == '1d':
+            # 過濾週末 (sat, sun) 與 每日 16:00 - 09:30 的空白
+            fig_idx.update_xaxes(
+                rangebreaks=[
+                    dict(bounds=["sat", "mon"]), 
+                    dict(bounds=[16, 9.5], pattern="hour")
+                ]
+            )
+
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
             margin=dict(l=10, r=10, t=20, b=10), height=380, 
-            xaxis=dict(type='category' if period_val != '1d' else 'date', showgrid=False, color=COLORS['muted'], fixedrange=True, nticks=5),
+            xaxis=xaxis_params,
             yaxis=dict(fixedrange=True, showgrid=True, gridcolor='#222', nticks=6, range=[y_min - y_padding, y_max + y_padding]),
             hovermode="x"
         )
