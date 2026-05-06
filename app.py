@@ -151,24 +151,23 @@ try:
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2:
-        # 1. 調整 Logo 位置：x 座標縮小至 -0.12 ~ -0.15 之間，防止寬螢幕時噴掉
+        # 優化手機端：縮小 Logo 的負偏移量，並減少左邊距
         logo_imgs = [dict(
             source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
             xref="paper", yref="y", 
-            x=-0.14,          # 修正重點：縮短與圖表邊界的距離
+            x=-0.18,          # 從 -0.30 縮減，確保手機端不溢出
             y=i,
-            sizex=0.045, sizey=0.45, 
+            sizex=0.06, sizey=0.6, 
             xanchor="left", yanchor="middle", sizing="contain", layer="above"
         ) for i, t in enumerate(row.index)]
 
-        # 2. 調整 Ticker 文字位置：x 緊貼 Logo
         ticker_labels = [dict(
             xref="paper", yref="y",
-            x=-0.09,          # 修正重點：讓文字靠近 y 軸邊界
+            x=-0.11,          # 從 -0.22 縮減，緊貼 Logo
             y=i,
             text=f"<b>{t}</b>",
             showarrow=False, xanchor="left", yanchor="middle",
-            font=dict(size=11, color=COLORS['muted'], family="Josefin Sans")
+            font=dict(size=10, color=COLORS['muted'], family="Josefin Sans")
         ) for i, t in enumerate(row.index)]
 
         fig_bar = go.Figure(go.Bar(
@@ -183,20 +182,14 @@ try:
             template="none",
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             height=450, 
-            # 3. 邊距修正：電腦版 l=100 即可提供充足空間，不至於讓圖表太瘦
-            margin=dict(l=100, r=50, t=50, b=20), 
+            margin=dict(l=85, r=40, t=50, b=20), # 左邊距從 180 顯著下修
             images=logo_imgs,
             annotations=ticker_labels,
             yaxis=dict(showticklabels=False, fixedrange=True),
-            xaxis=dict(
-                showgrid=True, 
-                gridcolor='rgba(128,128,128,0.05)', 
-                fixedrange=True,
-                side="bottom"
-            ),
+            xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.05)', fixedrange=True),
             title=dict(
                 text=f"CONTRIBUTION ({selected_label})", 
-                font=dict(color=COLORS['gold'], size=14, family="Josefin Sans"),
+                font=dict(color=COLORS['gold'], size=13, family="Josefin Sans"),
                 x=0.5, xanchor="center"
             ),
             bargap=0.35 
