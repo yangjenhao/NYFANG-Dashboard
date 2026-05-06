@@ -5,10 +5,13 @@ import plotly.graph_objects as go
 
 # --- 1. DESIGN TOKENS (移除硬編碼背景色) ---
 COLORS = {
-    "gold": "#D4AF37", 
-    "up": "#3da35d", 
-    "down": "#e05e5e",
-    "muted": "#8d8680"
+    "bg": "#1d1916",      # Anthropic 深色背景 (Shell)
+    "card_bg": "#2a2622", # 稍淺的深褐灰
+    "fg": "#f9f6f1",      # Anthropic 暖白文字
+    "gold": "#d97757",    # 磚紅/土橘色 (類似其品牌點綴色)
+    "muted": "#8d8680",   # 灰褐色
+    "up": "#3da35d",      # 莫蘭迪綠
+    "down": "#e05e5e"     # 莫蘭迪紅
 }
 
 st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
