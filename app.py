@@ -105,42 +105,48 @@ try:
             ))
             
             fig_idx.update_layout(
-                template="none", 
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                height=450, 
-                margin=dict(t=20, b=40, l=20, r=20), # 增加底部邊距避免標籤切斷
-                xaxis=dict(
-                                showgrid=False, 
-                                fixedrange=True,
-                                # --- 找回引導線設定 ---
-                                showspikes=True,             # 1. 重新開啟虛線
-                                spikecolor="rgba(128,128,128,0.5)", # 2. 設定半透明灰色，避免太突兀
-                                spikethickness=1,
-                                spikedash="dot",             # 3. 使用點狀線
-                                spikemode="across",
-                                # --------------------
-                                showline=False,      
-                                zeroline=False,      
-                                ticks="",            
-                                showticklabels=True,
-                                tickformat="%H:%M" if selected_label == "1D" else "%m-%d",
-                                tickfont=dict(color=COLORS['muted'], size=10),
-                                rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
-                ),
-                yaxis=dict(
-                    gridcolor='rgba(128,128,128,0.2)',
-                    range=[y_min - padding, y_max + padding],
-                    fixedrange=True,
-                    tickformat=".0f",
-                    # 解決 Y 方向殘影
-                    showline=False,      # 移除左側垂直軸線
-                    zeroline=False,      # 移除 Y=0 基準線
-                    ticks="",            # 移除 Y 軸刻度小短線
-                    tickfont=dict(color=COLORS['muted'], size=10)
-                ),
-                dragmode=False,
-                hovermode="x unified"
-            )
+                        template="none", 
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                        height=450, 
+                        margin=dict(t=20, b=40, l=20, r=20),
+                        # --- 新增：自定義懸停方框顏色 ---
+                        hoverlabel=dict(
+                            bgcolor=COLORS['gold'],        # 方框背景色改為金色
+                            font_size=12,
+                            font_color="#000000",          # 方框文字改為黑色以增加對比
+                            bordercolor=COLORS['gold']     # 邊框顏色
+                        ),
+                        # ---------------------------
+                        xaxis=dict(
+                            showgrid=False, 
+                            fixedrange=True,
+                            showspikes=True,
+                            # 將虛線顏色調亮（例如改為純白或更亮的金色）
+                            spikecolor="#FFFFFF",           
+                            spikethickness=1,
+                            spikedash="dot",
+                            spikemode="across",
+                            showline=False,      
+                            zeroline=False,      
+                            ticks="",            
+                            showticklabels=True,
+                            tickformat="%H:%M" if selected_label == "1D" else "%m-%d",
+                            tickfont=dict(color=COLORS['muted'], size=10),
+                            rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
+                        ),
+                        yaxis=dict(
+                            gridcolor='rgba(128,128,128,0.2)',
+                            range=[y_min - padding, y_max + padding],
+                            fixedrange=True,
+                            tickformat=".0f",
+                            showline=False,
+                            zeroline=False,
+                            ticks="",
+                            tickfont=dict(color=COLORS['muted'], size=10)
+                        ),
+                        dragmode=False,
+                        hovermode="x unified"
+                    )
             st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
     with col2: # 貢獻度圖表
         logo_imgs = [dict(
