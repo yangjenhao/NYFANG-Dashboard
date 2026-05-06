@@ -37,15 +37,35 @@ INDEX_SYMBOL = "^NYFANG"
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
+    # yfinance 會自動根據 period 決定 interval (如 1d 會給每分鐘資料)
     return yf.download(all_symbols, period=p, progress=False, auto_adjust=False)['Close']
 
 # --- 4. SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h2>The Terminal</h2>", unsafe_allow_html=True)
-    period_options = [('I MONTH', '1mo'), ('III MONTHS', '3mo'), ('VI MONTHS', '6mo'), ('I YEAR', '1y'), ('V YEARS', '5y'), ('YTD', 'ytd')]
-    period_label, period_val = st.selectbox("TIMELINE", options=period_options, format_func=lambda x: x[0])
+    st.markdown("---")
+    
+    # --- 新增 TODAY 與 V DAYS ---
+    period_options = [
+        ('TODAY', '1d'), 
+        ('V DAYS', '5d'), 
+        ('I MONTH', '1mo'), 
+        ('III MONTHS', '3mo'), 
+        ('VI MONTHS', '6mo'), 
+        ('I YEAR', '1y'), 
+        ('V YEARS', '5y'), 
+        ('YTD', 'ytd')
+    ]
+    
+    period_label, period_val = st.selectbox(
+        "TIMELINE", 
+        options=period_options, 
+        format_func=lambda x: x[0],
+        index=2  # 預設選中 I MONTH
+    )
     
     try:
+        # 固定用 1mo 來抓取最新市場日期，避免 1d 模式下找不到昨日數據
         latest_market_date = fetch_data("1mo").index[-1].date()
     except:
         latest_market_date = datetime.now().date()
@@ -68,36 +88,42 @@ try:
     raw_data = fetch_data(period_val).ffill().bfill()
     idx_series = raw_data[INDEX_SYMBOL]
     stock_prices = raw_data[OFFICIAL_TICKERS]
+    
+    # 績效歸因計算 (計算日變動)
     idx_diff = idx_series.diff()
     returns = stock_prices.pct_change()
     
-    # 績效歸因計算
     point_contrib_df = pd.DataFrame(index=returns.index, columns=OFFICIAL_TICKERS)
     for date in returns.index:
-        actual_pts, r = idx_diff.loc[date], returns.loc[date]
+        actual_pts = idx_diff.loc[date]
+        r = returns.loc[date]
         raw_impact = r * 0.1
         impact_sum = raw_impact.sum()
         point_contrib_df.loc[date] = raw_impact * (actual_pts / impact_sum) if abs(impact_sum) > 1e-6 else 0
 
+    # 處理選定日期的數據顯示
     target_ts = pd.to_datetime(st.session_state.target_date)
     valid_dates = point_contrib_df.index[point_contrib_df.index <= target_ts]
     plot_date = valid_dates[-1] if not valid_dates.empty else point_contrib_df.index[-1]
 
-    # 頂部指標
+    # UI 呈現
     st.markdown(f"<h1 class='main-title'>NYSE FANG+ ATTRIBUTION</h1>", unsafe_allow_html=True)
+    
     actual_idx_change = idx_diff.loc[plot_date]
     shift_color = COLORS['up'] if actual_idx_change >= 0 else COLORS['down']
     
     c1, c2, c3 = st.columns(3)
     with c1: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">INDEX VALUE</p><h3>{idx_series.loc[plot_date]:,.2f}</h3></div>', unsafe_allow_html=True)
     with c2: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">POINT SHIFT</p><h3 style="color:{shift_color};">{actual_idx_change:+.2f}</h3></div>', unsafe_allow_html=True)
-    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VARIANCE</p><h3 style="color:{shift_color};">{((idx_series.loc[plot_date]/idx_series.shift(1).loc[plot_date])-1)*100:+.2f}%</h3></div>', unsafe_allow_html=True)
-
-    # 圖表區塊
-    col1, col2 = st.columns(2)
     
+    # 避免分母為 0
+    prev_idx = idx_series.shift(1).loc[plot_date]
+    variance = ((idx_series.loc[plot_date] / prev_idx) - 1) * 100 if prev_idx else 0
+    with c3: st.markdown(f'<div class="metric-card"><p style="color:{COLORS["gold"]}; font-size:0.7rem;">VARIANCE</p><h3 style="color:{shift_color};">{variance:+.2f}%</h3></div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
     with col1:
-        # --- 互動式 Historical Trend ---
+        # Historical Trend (含有 Hover 數值顯示)
         fig_idx = go.Figure()
         fig_idx.add_trace(go.Scatter(
             x=idx_series.index, y=idx_series.values,
@@ -109,7 +135,7 @@ try:
         fig_idx.update_layout(
             template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=0, r=0, t=30, b=0), height=400,
-            hovermode="x unified", # 關鍵：滑鼠移動時自動顯示 X 軸對應數值
+            hovermode="x unified",
             xaxis=dict(showgrid=False, color=COLORS['muted']),
             yaxis=dict(showgrid=True, gridcolor='#333', color=COLORS['muted']),
             title=dict(text="HISTORICAL TREND", font=dict(color=COLORS['gold'], size=14))
@@ -117,7 +143,7 @@ try:
         st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
     with col2:
-        # --- 貢獻度長條圖 ---
+        # Contribution Bar Chart
         row = point_contrib_df.loc[plot_date].apply(pd.to_numeric).sort_values(ascending=False)
         fig_bar = go.Figure(go.Bar(
             x=row.index, y=row.values,
