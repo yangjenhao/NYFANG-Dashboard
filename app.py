@@ -122,28 +122,13 @@ try:
 
     with col2:
             logo_imgs = []
-            shapes = [] 
             
             tickers = list(row.index)
             
             for i, ticker in enumerate(tickers):
                 domain = DOMAIN_MAP.get(ticker, "google.com")
                 
-                # 針對 MU 增加「發光」效果，而非白底
-                if ticker == "MU":
-                    # 疊加三層極淡的白色，形成柔和的背光感
-                    for opacity, size in zip([0.15, 0.1, 0.05], [0.35, 0.45, 0.55]):
-                        shapes.append(dict(
-                            type="circle",
-                            xref="paper", yref="y",
-                            x0=-0.12 - (size*0.08), x1=-0.12 + (size*0.08),
-                            y0=i - size, y1=i + size,
-                            fillcolor=f"rgba(255, 255, 255, {opacity})",
-                            line_width=0,
-                            layer="below"
-                        ))
-    
-                # 主要 Logo
+                # 主要 Logo - 保持原始透明度，無任何背景
                 logo_imgs.append(dict(
                     source=f"https://www.google.com/s2/favicons?sz=128&domain={domain}",
                     xref="paper", yref="y", 
@@ -154,6 +139,9 @@ try:
                     sizing="contain", 
                     layer="above"
                 ))
+    
+            # 針對 MU 調整 Ticker 文字顏色，確保在黑底上看得到
+            tick_colors = [COLORS['fg'] if t != "MU" else "#FFFFFF" for t in row.index]
     
             fig_bar = go.Figure(go.Bar(
                 y=row.index, x=row.values, orientation='h',
@@ -167,7 +155,8 @@ try:
                 height=450, 
                 margin=dict(l=140, r=60, t=50, b=20),
                 images=logo_imgs,
-                shapes=shapes, 
+                # 確保 shapes 是空的，徹底移除背景
+                shapes=[], 
                 yaxis=dict(
                     tickfont=dict(size=11, color=COLORS['fg']),
                     ticksuffix="      ", 
