@@ -28,7 +28,7 @@ st.markdown(f"""
         text-transform: uppercase; 
         color: {COLORS['gold']} !important; 
         text-align: center; 
-        font-size: 3rem; 
+        font-size: 5rem; 
         margin: 10px 0; 
     }}
     
