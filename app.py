@@ -151,10 +151,17 @@ try:
         margin=dict(t=20, b=40, l=50, r=10), 
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
-            showgrid=False, fixedrange=True, showspikes=True,
-            spikecolor="#FF3333", spikethickness=1,
-            # 修正：判斷大寫 "1D" 顯示時間
-            tickformat="%H:%M" if selected_label == "1D" else "%m-%d",
+            showgrid=False, 
+            fixedrange=True, 
+            showspikes=True,
+            spikecolor="#FF3333", 
+            spikethickness=1,
+            # 優化時間格式判斷
+            tickformat=(
+                "%H:%M" if selected_label == "1D" else 
+                "%Y-%m-%d" if selected_label in ["1Y", "2Y", "MAX"] else 
+                "%m-%d"
+            ),
             tickfont=dict(color=COLORS['muted'], size=10),
             rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
         ),
