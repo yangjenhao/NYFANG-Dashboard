@@ -43,16 +43,15 @@ st.markdown(f"""
     }}
 
     div[data-testid="stSegmentedControl"] {{
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; 
+        width: 100% !important;
     }}
     div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
-        display: none; 
+        width: 100% !important;
+        display: flex !important;
     }}
     div[data-testid="stSegmentedControl"] > div {{
-        flex-wrap: nowrap !important;
-        min-width: min-content;
+        flex: 1 1 auto !important;
+        text-align: center;
     }}
     </style>
 """, unsafe_allow_html=True)
