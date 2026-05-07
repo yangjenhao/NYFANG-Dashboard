@@ -71,7 +71,8 @@ def fetch_data(p):
     all_symbols = OFFICIAL_TICKERS + [INDEX_SYMBOL]
     interval = "1m" if p == "1d" else "1d"
     data = yf.download(all_symbols, period=p, interval=interval, progress=False, auto_adjust=True)
-    if data.empty: return pd.DataFrame()
+    if data.empty:
+        return pd.DataFrame()
     
     df = data['Close'] if 'Close' in data.columns else data
     
@@ -135,6 +136,9 @@ try:
     impact_sum = raw_impact.sum()
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
+    # 兩張圖同列、同寬
+    col1, col2 = st.columns(2, gap="large")
+
     # --- 圖一：趨勢圖 ---
     y_min, y_max = idx_series.min(), idx_series.max()
     padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
@@ -147,7 +151,7 @@ try:
     
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=380, 
+        height=520, 
         margin=dict(t=20, b=40, l=50, r=10), 
         hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
         xaxis=dict(
@@ -156,7 +160,6 @@ try:
             showspikes=True,
             spikecolor="#FF3333", 
             spikethickness=1,
-            # 優化時間格式判斷
             tickformat=(
                 "%H:%M" if selected_label == "1D" else 
                 "%Y-%m-%d" if selected_label in ["1Y", "2Y", "MAX"] else 
@@ -171,12 +174,8 @@ try:
         ),
         hovermode="x unified"
     )
-    st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
-
-    st.write("") 
 
     # --- 圖二：貢獻度圖 ---
-    # 增加 X 軸左右留白空間 (0.5)
     val_min, val_max = row.min(), row.max()
     val_range = val_max - val_min if val_max != val_min else 10
     dynamic_x_min = val_min - (val_range * 0.5)
@@ -200,7 +199,7 @@ try:
     
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        height=550, 
+        height=520, 
         margin=dict(l=60, r=60, t=50, b=40), 
         images=logo_imgs,
         annotations=[],                       
@@ -216,7 +215,12 @@ try:
         ),
         bargap=0.3 
     )
-    st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+
+    with col1:
+        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
+
+    with col2:
+        st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
     st.error(f"系統錯誤: {e}")
