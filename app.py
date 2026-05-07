@@ -86,7 +86,7 @@ def fetch_data(p):
 with st.sidebar:
     st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus; letter-spacing:2px;'>TERMINAL</h2>", unsafe_allow_html=True)
     st.markdown(f"""
-        <div style='padding:10px; font-size:0.85rem; opacity:0.8;'>
+        <div style='padding:10px; font-size:1rem; opacity:0.8;'>
             <p><b>AUTHOR:</b> Jen-Hao Yang</p>
             <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
             <hr style="opacity: 0.2;">
@@ -116,16 +116,16 @@ try:
     metrics_html = f"""
     <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VALUE</div>
-            <div style="font-size:1.2rem; font-weight:bold; color:white;">{end:,.2f}</div>
+            <div style="color:{COLORS['gold']}; font-size:1rem; font-weight:600; margin-bottom:6px;">VALUE</div>
+            <div style="font-size:1.8rem; font-weight:bold; color:white;">{end:,.2f}</div>
         </div>
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">SHIFT</div>
-            <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{total_change:+.2f}</div>
+            <div style="color:{COLORS['gold']}; font-size:1rem; font-weight:600; margin-bottom:6px;">SHIFT</div>
+            <div style="font-size:1.8rem; font-weight:bold; color:{val_color};">{total_change:+.2f}</div>
         </div>
         <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VAR %</div>
-            <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{(total_change/start*100):+.2f}%</div>
+            <div style="color:{COLORS['gold']}; font-size:1rem; font-weight:600; margin-bottom:6px;">VAR %</div>
+            <div style="font-size:1.8rem; font-weight:bold; color:{val_color};">{(total_change/start*100):+.2f}%</div>
         </div>
     </div>
     """
