@@ -45,13 +45,17 @@ st.markdown(f"""
     div[data-testid="stSegmentedControl"] {{
         width: 100% !important;
     }}
-    div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
+    
+    div[data-testid="stSegmentedControl"] > div {{
         width: 100% !important;
         display: flex !important;
+        gap: 6px;
     }}
-    div[data-testid="stSegmentedControl"] > div {{
-        flex: 1 1 auto !important;
+    
+    div[data-testid="stSegmentedControl"] button {{
+        flex: 1 1 0 !important;
         text-align: center;
+        padding: 8px 0;
     }}
     </style>
 """, unsafe_allow_html=True)
