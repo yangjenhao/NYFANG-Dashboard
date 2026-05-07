@@ -3,69 +3,85 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- 1. DESIGN TOKENS ---
+# --- 1. LINEAR DESIGN TOKENS ---
 COLORS = {
-    "gold": "#D4AF37", 
-    "up": "#3da35d", 
-    "down": "#e05e5e",
-    "muted": "#8d8680"
+    "bg_base": "#050506",
+    "bg_elevated": "#0a0a0c",
+    "accent": "#5E6AD2",
+    "accent_glow": "rgba(94, 106, 210, 0.15)",
+    "text_main": "#EDEDEF",
+    "text_muted": "#8A8F98",
+    "border": "rgba(255, 255, 255, 0.08)",
+    "up": "#4ADE80",
+    "down": "#F87171"
 }
 
-st.set_page_config(page_title="FANG+ GATSBY TERMINAL", layout="wide")
+st.set_page_config(page_title="FANG+ LINEAR TERMINAL", layout="wide")
 
-# CSS 修正：加入針對 Segmented Control (Timeline) 的不換行控制
+# --- 2. CSS ENGINE (LINEAR SPEC) ---
 st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
     
-    /* 移除背景色，僅保留字體設定 */
+    /* 背景：放射狀漸層 + 雜訊紋理 */
     .stApp {{ 
-        font-family: 'Josefin Sans', sans-serif; 
+        background-color: {COLORS['bg_base']} !important; 
+        font-family: 'Inter', sans-serif;
+        background-image: 
+            radial-gradient(circle at 50% -20%, #1e1e2d 0%, {COLORS['bg_base']} 80%),
+            url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
     }}
     
+    /* 標題：Linear 招牌消散型漸層 */
     .main-title {{ 
-        font-family: 'Marcellus', serif !important; 
-        text-transform: uppercase; 
-        color: {COLORS['gold']} !important; 
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.04em !important;
+        background: linear-gradient(to bottom, #ffffff 0%, rgba(255,255,255,0.7) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center; 
-        font-size: 2.2rem; 
-        margin: 10px 0; 
+        font-size: 3rem; 
+        margin: 20px 0; 
     }}
     
-    /* 移除側邊欄背景色，僅保留右側邊框線 */
+    /* 側邊欄：磨砂玻璃效果 */
     section[data-testid="stSidebar"] {{ 
-        border-right: 1px solid rgba(128, 128, 128, 0.1); 
+        background-color: rgba(10, 10, 12, 0.7) !important; 
+        backdrop-filter: blur(12px);
+        border-right: 1px solid {COLORS['border']}; 
     }}
 
     .block-container {{
-        max-width: 1000px !important;
-        padding-top: 1.5rem;
+        max-width: 1100px !important;
+        padding-top: 2rem;
     }}
 
-    /* 保持 Timeline 的捲動控制 */
+    /* 現代化指標卡 */
+    .metric-card {{
+        flex: 1;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid {COLORS['border']};
+        border-top: 1px solid rgba(255, 255, 255, 0.15); /* 頂部亮邊線 */
+        padding: 20px;
+        text-align: center;
+        border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    }}
+
+    /* 時間選擇器樣式 */
     div[data-testid="stSegmentedControl"] {{
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; 
-    }}
-    div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
-        display: none; 
-    }}
-    div[data-testid="stSegmentedControl"] > div {{
-        flex-wrap: nowrap !important;
-        min-width: min-content;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 4px;
+        border-radius: 8px;
     }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. DATA LOGIC ---
+# --- 3. DATA LOGIC ---
 OFFICIAL_TICKERS = ["META", "AAPL", "AMZN", "NFLX", "MSFT", "GOOGL", "MU", "NVDA", "PLTR", "AVGO"]
 INDEX_SYMBOL = "^NYFANG"
-DOMAIN_MAP = {
-    "META": "meta.com", "AAPL": "apple.com", "AMZN": "amazon.com", "NFLX": "netflix.com", 
-    "MSFT": "microsoft.com", "GOOGL": "google.com", "MU": "micron.com", 
-    "NVDA": "nvidia.com", "PLTR": "palantir.com", "AVGO": "broadcom.com"
-}
+DOMAIN_MAP = {t: f"{t.lower()}.com" for t in OFFICIAL_TICKERS} # 簡化映射
 
 @st.cache_data(ttl=60)
 def fetch_data(p):
@@ -73,151 +89,106 @@ def fetch_data(p):
     interval = "1m" if p == "1d" else "1d"
     data = yf.download(all_symbols, period=p, interval=interval, progress=False, auto_adjust=True)
     if data.empty: return pd.DataFrame()
-    
     df = data['Close'] if 'Close' in data.columns else data
-    
-    # 確保 1D 數據對標美國東部時間 (New York)
-    if p == "1d":
-        if df.index.tz is not None:
-            df.index = df.index.tz_convert('America/New_York').tz_localize(None)
+    if p == "1d" and df.index.tz is not None:
+        df.index = df.index.tz_convert('America/New_York').tz_localize(None)
     return df.ffill().dropna()
 
-# --- 3. SIDEBAR ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
-    st.markdown(f"<h2 style='color:{COLORS['gold']}; font-family:Marcellus; letter-spacing:2px;'>TERMINAL</h2>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color:{COLORS['accent']}; font-weight:600; letter-spacing:1px; font-size:0.9rem;'>SYSTEM TERMINAL</div>", unsafe_allow_html=True)
     st.markdown(f"""
-        <div style='padding:10px; font-size:0.85rem; opacity:0.8;'>
-            <p><b>AUTHOR:</b> Jen-Hao Yang</p>
-            <p><b>SYSTEM:</b> NYSE FANG+ ENGINE</p>
-            <hr style="opacity: 0.2;">
-            <p>STATUS: <span style="color:{COLORS['up']};">ONLINE</span></p>
+        <div style='margin-top:20px; font-size:0.8rem; color:{COLORS['text_muted']};'>
+            <p>CORE: <span style="color:white;">NYSE FANG+</span></p>
+            <p>STATUS: <span style="color:{COLORS['up']};">OPERATIONAL</span></p>
+            <hr style="opacity: 0.1;">
+            <p style="font-size:0.7rem;">PRECISION TRADING INTERFACE v2.0</p>
         </div>
     """, unsafe_allow_html=True)
 
-# --- 4. MAIN UI ---
+# --- 5. MAIN UI ---
 st.markdown("<h1 class='main-title'>NYSE FANG+ INDEX</h1>", unsafe_allow_html=True)
 
-# 移除 YTD，5Y 改為 2Y
 period_map = {"1D": "1d", "5D": "5d", "1M": "1mo", "6M": "6mo", "1Y": "1y", "2Y": "2y", "MAX": "max"}
 selected_label = st.segmented_control("TIMELINE", options=list(period_map.keys()), default="1D", label_visibility="collapsed")
 
 try:
     df = fetch_data(period_map[selected_label])
-    if INDEX_SYMBOL not in df.columns:
-        st.error(f"數據缺失：找不到 {INDEX_SYMBOL}")
-        st.stop()
-
     idx_series = df[INDEX_SYMBOL]
     start, end = idx_series.iloc[0], idx_series.iloc[-1]
     total_change = end - start
     val_color = COLORS['up'] if total_change >= 0 else COLORS['down']
     
-    # 指標卡 Flexbox 佈局
-    metrics_html = f"""
-    <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 20px;">
-        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VALUE</div>
-            <div style="font-size:1.2rem; font-weight:bold; color:white;">{end:,.2f}</div>
+    # 指標卡布局
+    st.markdown(f"""
+    <div style="display: flex; gap: 16px; margin-bottom: 25px;">
+        <div class="metric-card">
+            <div style="color:{COLORS['text_muted']}; font-size:0.7rem; font-weight:600; margin-bottom:8px; letter-spacing:1px;">MARKET VALUE</div>
+            <div style="font-size:1.5rem; font-weight:600; color:{COLORS['text_main']};">{end:,.2f}</div>
         </div>
-        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">SHIFT</div>
-            <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{total_change:+.2f}</div>
+        <div class="metric-card">
+            <div style="color:{COLORS['text_muted']}; font-size:0.7rem; font-weight:600; margin-bottom:8px; letter-spacing:1px;">PERIOD SHIFT</div>
+            <div style="font-size:1.5rem; font-weight:600; color:{val_color};">{total_change:+.2f}</div>
         </div>
-        <div style="flex: 1; background-color: rgba(128, 128, 128, 0.05); border: 1px solid {COLORS['gold']}22; padding: 16px 5px; text-align: center; border-radius: 6px;">
-            <div style="color:{COLORS['gold']}; font-size:0.75rem; font-weight:600; margin-bottom:6px;">VAR %</div>
-            <div style="font-size:1.2rem; font-weight:bold; color:{val_color};">{(total_change/start*100):+.2f}%</div>
+        <div class="metric-card">
+            <div style="color:{COLORS['text_muted']}; font-size:0.7rem; font-weight:600; margin-bottom:8px; letter-spacing:1px;">VARIANCE %</div>
+            <div style="font-size:1.5rem; font-weight:600; color:{val_color};">{(total_change/start*100):+.2f}%</div>
         </div>
     </div>
-    """
-    st.markdown(metrics_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-    returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
-    raw_impact = returns * 0.1
-    impact_sum = raw_impact.sum()
-    row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
-
-    # --- 圖一：趨勢圖 ---
+    # --- 圖一：趨勢圖 (Linear Glow Style) ---
     y_min, y_max = idx_series.min(), idx_series.max()
-    padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
+    padding = (y_max - y_min) * 0.1
     
     fig_idx = go.Figure(go.Scatter(
         x=idx_series.index, y=idx_series.values, 
-        line=dict(color=COLORS['gold'], width=2, shape='spline'),
-        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)', hoverinfo="x+y"
+        line=dict(color=COLORS['accent'], width=2.5),
+        fill='tozeroy', fillcolor='rgba(94, 106, 210, 0.05)', 
+        hoverinfo="x+y"
     ))
     
     fig_idx.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=380, 
-        margin=dict(t=20, b=40, l=50, r=10), 
-        hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
+        height=400, margin=dict(t=10, b=10, l=10, r=10),
         xaxis=dict(
-            showgrid=False, 
-            fixedrange=True, 
-            showspikes=True,
-            spikecolor="#FF3333", 
-            spikethickness=1,
-            # 優化時間格式判斷
-            tickformat=(
-                "%H:%M" if selected_label == "1D" else 
-                "%Y-%m-%d" if selected_label in ["1Y", "2Y", "MAX"] else 
-                "%m-%d"
-            ),
-            tickfont=dict(color=COLORS['muted'], size=10),
+            showgrid=False, tickfont=dict(color=COLORS['text_muted'], size=10),
+            tickformat=( "%H:%M" if selected_label == "1D" else "%Y-%m-%d" if selected_label in ["1Y", "2Y", "MAX"] else "%m-%d"),
             rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
         ),
         yaxis=dict(
-            gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding],
-            fixedrange=True, tickformat=".0f", tickfont=dict(color=COLORS['muted'], size=10)
+            gridcolor='rgba(255,255,255,0.03)', range=[y_min - padding, y_max + padding],
+            tickfont=dict(color=COLORS['text_muted'], size=10), side="right"
         ),
         hovermode="x unified"
     )
     st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
 
-    st.write("") 
-
-    # --- 圖二：貢獻度圖 ---
-    # 增加 X 軸左右留白空間 (0.5)
-    val_min, val_max = row.min(), row.max()
-    val_range = val_max - val_min if val_max != val_min else 10
-    dynamic_x_min = val_min - (val_range * 0.5)
-    dynamic_x_max = val_max + (val_range * 0.5)
-
-    logo_imgs = [dict(
-        source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-        xref="paper", yref="y", 
-        x=-0.01, 
-        y=i,
-        sizex=0.045, sizey=0.45, 
-        xanchor="right", yanchor="middle", sizing="contain", layer="above"
-    ) for i, t in enumerate(row.index)]
+    # --- 圖二：貢獻度圖 (Technical Bar) ---
+    returns = (df[OFFICIAL_TICKERS].iloc[-1] / df[OFFICIAL_TICKERS].iloc[0]) - 1
+    raw_impact = returns * 0.1
+    impact_sum = raw_impact.sum()
+    row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
     fig_bar = go.Figure(go.Bar(
         y=row.index, x=row.values, orientation='h',
-        marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+        marker=dict(
+            color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
+            line=dict(width=0)
+        ),
         text=row.values.round(2), textposition='outside',
-        textfont=dict(color=COLORS['muted'], size=10), cliponaxis=False 
+        textfont=dict(color=COLORS['text_muted'], size=11)
     ))
     
     fig_bar.update_layout(
         template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        height=550, 
-        margin=dict(l=60, r=60, t=50, b=40), 
-        images=logo_imgs,
-        annotations=[],                       
-        yaxis=dict(showticklabels=False, fixedrange=True), 
-        xaxis=dict(
-            showgrid=True, gridcolor='rgba(128,128,128,0.05)', 
-            fixedrange=True, range=[dynamic_x_min, dynamic_x_max]
-        ),
-        title=dict(
-            text=f"CONTRIBUTION ({selected_label})", 
-            font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
-            x=0.5, xanchor="center"
-        ),
-        bargap=0.3 
+        height=500, margin=dict(l=80, r=80, t=50, b=40),
+        title=dict(text=f"CONTRIBUTION ({selected_label})", font=dict(color=COLORS['text_main'], size=14), x=0.5),
+        xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.03)', tickfont=dict(color=COLORS['text_muted'])),
+        yaxis=dict(tickfont=dict(color=COLORS['text_main'], size=12), fixedrange=True),
+        bargap=0.4
     )
     st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
-    st.error(f"系統錯誤: {e}")
+    st.error(f"SYSTEM ERROR: {e}")
