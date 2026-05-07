@@ -137,7 +137,7 @@ try:
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
     # 這裡改成 1.4 : 1
-    col1, col2 = st.columns([1.2, 1], gap="large")
+    col1, col2 = st.columns([1, 1], gap="large")
     
     # --- 圖一：趨勢圖 ---
     y_min, y_max = idx_series.min(), idx_series.max()
