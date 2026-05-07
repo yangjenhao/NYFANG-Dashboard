@@ -45,45 +45,14 @@ st.markdown(f"""
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        height: 48px;                 /* ⭐ 控制整體高度 */
-        display: flex;
-        align-items: center;
+        scrollbar-width: none; 
     }}
-    
     div[data-testid="stSegmentedControl"]::-webkit-scrollbar {{
-        display: none;
+        display: none; 
     }}
-    
-    /* 內部排列（避免換行） */
     div[data-testid="stSegmentedControl"] > div {{
         flex-wrap: nowrap !important;
         min-width: min-content;
-        gap: 6px;                     /* ⭐ 按鈕間距 */
-    }}
-    
-    /* 按鈕樣式 */
-    div[data-testid="stSegmentedControl"] button {{
-        font-size: 14px;              /* ⭐ 字體大小 */
-        padding: 8px 16px;            /* ⭐ 按鈕大小 */
-        border-radius: 6px;
-        border: 1px solid rgba(128,128,128,0.2);
-        background-color: transparent;
-        color: #8d8680;
-        transition: all 0.2s ease;
-    }}
-    
-    /* hover 效果 */
-    div[data-testid="stSegmentedControl"] button:hover {{
-        border-color: #D4AF37;
-        color: #D4AF37;
-    }}
-    
-    /* 選中狀態 */
-    div[data-testid="stSegmentedControl"] button[aria-pressed="true"] {{
-        border: 1px solid #D4AF37;
-        color: #D4AF37;
-        background-color: rgba(212, 175, 55, 0.08);
     }}
     </style>
 """, unsafe_allow_html=True)
