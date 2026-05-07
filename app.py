@@ -136,91 +136,147 @@ try:
     impact_sum = raw_impact.sum()
     row = (raw_impact * (total_change / impact_sum) if abs(impact_sum) > 1e-9 else pd.Series(0, index=OFFICIAL_TICKERS)).sort_values(ascending=True)
 
-    # 兩張圖同列、同寬
-    col1, col2 = st.columns(2, gap="large")
-
+    # 這裡改成 1.4 : 1
+    col1, col2 = st.columns([1.4, 1], gap="large")
+    
     # --- 圖一：趨勢圖 ---
     y_min, y_max = idx_series.min(), idx_series.max()
     padding = (y_max - y_min) * 0.15 if y_max != y_min else 10
     
     fig_idx = go.Figure(go.Scatter(
-        x=idx_series.index, y=idx_series.values, 
+        x=idx_series.index,
+        y=idx_series.values,
         line=dict(color=COLORS['gold'], width=2, shape='spline'),
-        fill='tozeroy', fillcolor='rgba(212, 175, 55, 0.05)', hoverinfo="x+y"
+        fill='tozeroy',
+        fillcolor='rgba(212, 175, 55, 0.05)',
+        hoverinfo="x+y"
     ))
     
     fig_idx.update_layout(
-        template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=520, 
-        margin=dict(t=20, b=40, l=50, r=10), 
-        hoverlabel=dict(bgcolor="#FF3333", font_color="#FFFFFF"),
+        template="none",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=520,
+        margin=dict(t=20, b=40, l=50, r=10),
+        hoverlabel=dict(
+            bgcolor="#FF3333",
+            font_color="#FFFFFF"
+        ),
         xaxis=dict(
-            showgrid=False, 
-            fixedrange=True, 
+            showgrid=False,
+            fixedrange=True,
             showspikes=True,
-            spikecolor="#FF3333", 
+            spikecolor="#FF3333",
             spikethickness=1,
             tickformat=(
-                "%H:%M" if selected_label == "1D" else 
-                "%Y-%m-%d" if selected_label in ["1Y", "2Y", "MAX"] else 
-                "%m-%d"
+                "%H:%M" if selected_label == "1D"
+                else "%Y-%m-%d" if selected_label in ["1Y", "2Y", "MAX"]
+                else "%m-%d"
             ),
-            tickfont=dict(color=COLORS['muted'], size=10),
+            tickfont=dict(
+                color=COLORS['muted'],
+                size=10
+            ),
             rangebreaks=[dict(bounds=["sat", "mon"])] if selected_label != "1D" else None
         ),
         yaxis=dict(
-            gridcolor='rgba(128,128,128,0.1)', range=[y_min - padding, y_max + padding],
-            fixedrange=True, tickformat=".0f", tickfont=dict(color=COLORS['muted'], size=10)
+            gridcolor='rgba(128,128,128,0.1)',
+            range=[y_min - padding, y_max + padding],
+            fixedrange=True,
+            tickformat=".0f",
+            tickfont=dict(
+                color=COLORS['muted'],
+                size=10
+            )
         ),
         hovermode="x unified"
     )
-
+    
     # --- 圖二：貢獻度圖 ---
     val_min, val_max = row.min(), row.max()
     val_range = val_max - val_min if val_max != val_min else 10
+    
     dynamic_x_min = val_min - (val_range * 0.5)
     dynamic_x_max = val_max + (val_range * 0.5)
-
-    logo_imgs = [dict(
-        source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
-        xref="paper", yref="y", 
-        x=-0.01, 
-        y=i,
-        sizex=0.045, sizey=0.45, 
-        xanchor="right", yanchor="middle", sizing="contain", layer="above"
-    ) for i, t in enumerate(row.index)]
-
+    
+    logo_imgs = [
+        dict(
+            source=f"https://www.google.com/s2/favicons?sz=128&domain={DOMAIN_MAP.get(t, 'google.com')}",
+            xref="paper",
+            yref="y",
+            x=-0.01,
+            y=i,
+            sizex=0.045,
+            sizey=0.45,
+            xanchor="right",
+            yanchor="middle",
+            sizing="contain",
+            layer="above"
+        )
+        for i, t in enumerate(row.index)
+    ]
+    
     fig_bar = go.Figure(go.Bar(
-        y=row.index, x=row.values, orientation='h',
-        marker_color=[COLORS['up'] if x > 0 else COLORS['down'] for x in row.values],
-        text=row.values.round(2), textposition='outside',
-        textfont=dict(color=COLORS['muted'], size=10), cliponaxis=False 
+        y=row.index,
+        x=row.values,
+        orientation='h',
+        marker_color=[
+            COLORS['up'] if x > 0 else COLORS['down']
+            for x in row.values
+        ],
+        text=row.values.round(2),
+        textposition='outside',
+        textfont=dict(
+            color=COLORS['muted'],
+            size=10
+        ),
+        cliponaxis=False
     ))
     
     fig_bar.update_layout(
-        template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        height=520, 
-        margin=dict(l=60, r=60, t=50, b=40), 
+        template="none",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=520,
+        margin=dict(l=60, r=60, t=50, b=40),
         images=logo_imgs,
-        annotations=[],                       
-        yaxis=dict(showticklabels=False, fixedrange=True), 
+        annotations=[],
+        yaxis=dict(
+            showticklabels=False,
+            fixedrange=True
+        ),
         xaxis=dict(
-            showgrid=True, gridcolor='rgba(128,128,128,0.05)', 
-            fixedrange=True, range=[dynamic_x_min, dynamic_x_max]
+            showgrid=True,
+            gridcolor='rgba(128,128,128,0.05)',
+            fixedrange=True,
+            range=[dynamic_x_min, dynamic_x_max]
         ),
         title=dict(
-            text=f"CONTRIBUTION ({selected_label})", 
-            font=dict(color=COLORS['gold'], size=16, family="Josefin Sans"),
-            x=0.5, xanchor="center"
+            text=f"CONTRIBUTION ({selected_label})",
+            font=dict(
+                color=COLORS['gold'],
+                size=16,
+                family="Josefin Sans"
+            ),
+            x=0.5,
+            xanchor="center"
         ),
-        bargap=0.3 
+        bargap=0.3
     )
-
+    
+    # --- 顯示 ---
     with col1:
-        st.plotly_chart(fig_idx, use_container_width=True, config={'displayModeBar': False})
-
+        st.plotly_chart(
+            fig_idx,
+            use_container_width=True,
+            config={'displayModeBar': False}
+        )
+    
     with col2:
-        st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
-
+        st.plotly_chart(
+            fig_bar,
+            use_container_width=True,
+            config={'displayModeBar': False}
+        )
 except Exception as e:
     st.error(f"系統錯誤: {e}")
