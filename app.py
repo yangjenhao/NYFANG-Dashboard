@@ -18,8 +18,8 @@ st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Josefin+Sans:wght@300;400;600&display=swap');
     
+    /* 移除背景色，僅保留字體設定 */
     .stApp {{ 
-        background-color: #1E1E1E !important; 
         font-family: 'Josefin Sans', sans-serif; 
     }}
     
@@ -32,8 +32,8 @@ st.markdown(f"""
         margin: 10px 0; 
     }}
     
+    /* 移除側邊欄背景色，僅保留右側邊框線 */
     section[data-testid="stSidebar"] {{ 
-        background-color: #252525 !important; 
         border-right: 1px solid rgba(128, 128, 128, 0.1); 
     }}
 
@@ -42,6 +42,7 @@ st.markdown(f"""
         padding-top: 1.5rem;
     }}
 
+    /* 保持 Timeline 的捲動控制 */
     div[data-testid="stSegmentedControl"] {{
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
