@@ -38,7 +38,7 @@ st.markdown(f"""
     }}
 
     .block-container {{
-        max-width: 1000px !important;
+        max-width: 2000px !important;
         padding-top: 1.5rem;
     }}
 
